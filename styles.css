@@ -74,11 +74,13 @@ button[aria-pressed="true"] { font-weight: 800; }
 .section-heading { justify-content: space-between; gap: .5rem; }
 .section-index { color: #b8b8ae; }
 .section-note, .tools section > p:not(.milestone-list) { margin: 0; padding: .7rem .85rem .2rem; color: var(--muted); font-size: .8rem; }
-.build-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; padding: .7rem .7rem 0; }
-.tool-button { display: grid; grid-template-columns: 2rem minmax(0, 1fr); column-gap: .45rem; align-items: center; min-width: 0; min-height: 3.5rem; padding: .35rem; text-align: left; }
+.build-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; padding: .7rem ; }
+.tool-button { display: grid; grid-template-columns: 2rem minmax(0, 1fr); column-gap: .45rem; align-items: center; min-width: 0; min-height: 3.5rem; padding: .35rem; color: var(--paper-bright); background: var(--ink); border-color: var(--ink); text-align: left; }
+.tool-button.is-selected { border-color: var(--signal); }
+.tool-button:disabled { color: #8c8c83; background: var(--ink); border-color: var(--ink); opacity: 1; }
 .tool-button > strong, .tool-button > small { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
 .tool-button > strong { font-size: .76rem; line-height: 1.05; }
-.tool-button small { display: block; color: var(--muted); font-size: .8rem; line-height: 1.1; }
+.tool-button small { display: block; color: inherit; font-size: .8rem; line-height: 1.1; opacity: .72; }
 .tool-button:hover:not(:disabled) small, .tool-button.is-selected small { color: inherit; opacity: .78; }
 .tool-sprite { grid-column: 1; grid-row: 1 / span 2; width: 2rem; height: 2rem; pointer-events: none; background-image: url("./assets/machine-sprites.png"); background-repeat: no-repeat; background-size: 16rem 8rem; image-rendering: pixelated; }
 .tool-sprite--quarry { background-position: -6rem -4rem; }
