@@ -47,7 +47,7 @@ const canvas = getCanvas();
 const SAVE_KEY = "dustline-factory-loop-v3";
 const LEGACY_SAVE_KEY = "dustline-factory-loop-v2";
 const ui = {
-  runButton: document.getElementById("run-button"), runLabel: document.getElementById("run-label"), cycle: document.getElementById("cycle-value"),
+  runButton: document.getElementById("run-button"), runLabel: document.getElementById("run-label"),
   gridButton: document.getElementById("grid-button"), gridState: document.getElementById("grid-state"), clearButton: document.getElementById("clear-button"), saveButton: document.getElementById("save-button"), resetButton: document.getElementById("reset-button"),
   inspector: document.getElementById("inspector-content"), progression: document.getElementById("progression-content"), placementMode: document.getElementById("placement-mode"), cursor: document.getElementById("cursor-readout"), hint: document.getElementById("canvas-hint"), saveState: document.getElementById("save-state"),
 };
@@ -440,7 +440,6 @@ function renderProgression() {
 }
 
 function renderUi(now) {
-  ui.cycle.textContent = String(state.factory.stats.cycles).padStart(4, "0");
   if (state.pointer) updateCursorReadout(state.pointer);
   renderToolAvailability();
   renderProgression();

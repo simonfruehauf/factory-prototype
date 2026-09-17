@@ -10,35 +10,39 @@
   <body>
     <main class="app-shell">
       <header class="page-header">
-        <div class="header-actions">
-          <button type="button" id="save-button">save</button>
-          <button type="button" id="reset-button">reset</button>
-          <a href="readme.html">readme</a>
+        <div class="brand-lockup">
+          <h1>factory prototype</h1>
+          <p>mechanical falling-sand sandbox. shape the flow. watch the line work.</p>
         </div>
       </header>
 
       <section class="control-strip" aria-label="Simulation controls">
         <div class="run-control">
-          <button id="run-button" type="button" aria-pressed="true"><span id="run-label">running</span></button>
-          <span>cycle <strong id="cycle-value">0001</strong></span>
+          <button class="run-button" id="run-button" type="button" aria-pressed="true"><span id="run-label">running</span></button>
         </div>
         <div class="speed-control" role="group" aria-label="Simulation speed">
-          <span>speed</span>
+          <span class="control-label">speed</span>
           <button class="speed-button" type="button" data-speed="1" aria-pressed="true">1x</button>
           <button class="speed-button" type="button" data-speed="2" aria-pressed="false">2x</button>
           <button class="speed-button" type="button" data-speed="4" aria-pressed="false">4x</button>
-        </div>
-        <div class="strip-actions">
           <button type="button" id="grid-button">grid <span id="grid-state">on</span></button>
           <button type="button" id="clear-button">clear field</button>
+        </div>
+        <div class="strip-actions">
+          <button type="button" id="save-button">save</button>
+          <button type="button" id="reset-button">reset</button>
+          <a class="text-link" href="readme.html">readme</a>
         </div>
       </section>
 
       <div class="app-grid">
         <aside class="tools" aria-label="Build and material tools">
           <section aria-labelledby="machine-tools-heading">
-            <h2 id="machine-tools-heading">Machines</h2>
-            <p>8 x 8 pixels</p>
+            <div class="section-heading">
+              <h2 id="machine-tools-heading">Build tools</h2>
+              <span class="section-index">01</span>
+            </div>
+            <p class="section-note">one tool, one 8 x 8 bay</p>
             <div class="build-tools" id="machine-tools">
               <button class="tool-button" type="button" data-tool="select" aria-pressed="true"><strong>inspect</strong><small>select a machine (V)</small></button>
               <button class="tool-button" type="button" data-tool="erase" aria-pressed="false"><strong>erase area</strong><small>drag an area to remove (X)</small></button>
@@ -61,35 +65,38 @@
           </section>
 
           <section aria-labelledby="progression-heading">
-            <h2 id="progression-heading">Progression</h2>
+            <div class="section-heading">
+              <h2 id="progression-heading">Progression</h2>
+              <span class="section-index">02</span>
+            </div>
             <div id="progression-content"></div>
           </section>
 
-          <p>auto-save: <span id="save-state">local</span></p>
-          <p>space: pause / run<br />g: toggle grid<br />x: area erase</p>
+          <div class="sidebar-footer">
+            <p>auto-save <strong id="save-state">local</strong></p>
+          </div>
         </aside>
 
         <section class="simulation-column" aria-label="Factory workspace">
           <div class="field-column">
             <div class="field-heading">
-              <h2>Material field</h2>
-              <span id="field-meta">384 x 256 cells</span>
+              <div>
+                <h2>Material field</h2>
+              </div>
+              <span class="field-meta" id="field-meta">384 x 256 cells</span>
             </div>
             <div class="sim-frame" id="canvas-wrap">
               <canvas id="sim-canvas" width="384" height="256" aria-label="Interactive falling sand material field"></canvas>
             </div>
             <p id="canvas-hint">click an 8 x 8 bay to place or select · drag an area to remove · hold ctrl to build over a machine</p>
-              <span id="cursor-readout">x 00 / y 00</span>
 
             <div class="field-footer">
-              <div class="legend" aria-label="Material legend">
-                <span>residue</span>
-                <span>grit</span>
-                <span>concentrate</span>
-                <span>quartz</span>
-                <span>gold</span>
-                <span>ingot</span>
+              <div class="field-help">
+                <span><kbd>space</kbd> pause / run</span>
+                <span><kbd>g</kbd> grid</span>
+                <span><kbd>x</kbd> erase area</span>
               </div>
+              <span class="field-coordinate">cursor <span id="cursor-readout">x 00 / y 00</span></span>
             </div>
           </div>
 
