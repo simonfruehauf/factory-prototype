@@ -1,0 +1,246 @@
+* {
+  box-sizing: border-box;
+  cursor: url("./assets/cursor-large.png") 0 0, auto;
+}
+
+html,
+body { width: 100%; max-width: 100%; overflow-x: hidden; }
+
+body {
+  min-width: 320px;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.4;
+}
+
+button, input { font: inherit; }
+button[aria-pressed="true"] { font-weight: 700; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.1; }
+h2 { font-size: 1.2rem; line-height: 1.2; }
+
+.app-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+
+  padding:0.4rem;
+  padding-top: 0rem !important;
+}
+
+
+
+
+.control-strip,
+.run-control,
+.speed-control,
+.strip-actions,
+.field-heading,
+.field-footer {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.field-heading { flex-wrap: wrap; }
+
+.page-header,
+.control-strip,
+.field-heading,
+.field-footer {
+  justify-content: space-between;
+}
+
+.page-header,
+.control-strip {
+  flex-wrap: wrap;
+  padding-block: .75rem;
+}
+
+.header-actions,
+.build-tools,
+.material-tools {
+  display: grid;
+  gap: .4rem;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.app-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.tools {
+  min-width: 0;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.tools section h2,
+.tools section p,
+.tools > p,
+.field-heading h2,
+.inspector h2 {
+  margin-block: 0 .35rem;
+}
+
+.build-tools,
+.material-tools {
+  display: grid;
+  gap: .4rem;
+}
+
+.tool-button,
+.material-button {
+  text-align: left;
+}
+
+.tool-button small,
+.material-button small {
+  display: block;
+}
+
+.range-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: .9rem;
+}
+
+#brush-size { width: 100%; }
+
+.simulation-column,
+.control-strip { min-width: 0; }
+
+.simulation-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.field-column { min-width: 0; }
+
+.sim-frame {
+  display: grid;
+  width: 100%;
+  min-height: 20rem;
+  aspect-ratio: 3 / 2;
+  place-items: center;
+  overflow: hidden;
+}
+
+#sim-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+  cursor: none;
+}
+
+#canvas-hint { margin: .4rem 0 0; }
+
+.field-footer {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: .75rem;
+}
+
+#cursor-readout { white-space: nowrap; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.inspector {
+  display: grid;
+  gap: .75rem;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.inspector > p,
+.inspector > h2 { margin-block: 0; }
+
+.status-row,
+.progress-label { display: block; }
+.progress-label progress { display: block; width: 100%; }
+
+.filter-settings { display: grid; gap: .35rem; border: 1px solid currentColor; padding: .6rem; }
+.filter-settings legend { padding-inline: .25rem; }
+.filter-actions { display: flex; flex-wrap: wrap; gap: .35rem; margin-block: .2rem .1rem; }
+.filter-materials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem .75rem; margin-top: .35rem; }
+.filter-materials label { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 800px) {
+  .app-grid { grid-template-columns: 1fr; }
+  .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulation-column { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 801px) {
+  html,
+  body { height: 100%; overflow: hidden; }
+
+  .app-shell {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-grid {
+    flex: 1;
+    min-height: 0;
+    margin-top: .5rem;
+    align-items: stretch;
+  }
+
+  .tools,
+  .simulation-column {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .simulation-column { align-items: stretch; }
+
+  .tools,
+  .inspector { overflow-y: auto; }
+
+  .field-column {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  .sim-frame {
+    min-height: 0;
+    height: auto;
+    aspect-ratio: auto;
+  }
+
+  .inspector { max-height: 100%; }
+}
+
+@media (max-width: 520px) {
+  .app-shell { padding: .75rem; }
+  .tools { grid-template-columns: 1fr; }
+  .control-strip { display: flex; width: calc(100vw - 1.5rem); max-width: calc(100vw - 1.5rem); flex-direction: column; align-items: stretch; justify-content: flex-start; }
+  .run-control,
+  .speed-control,
+  .strip-actions { width: 100%; min-width: 0; justify-content: flex-start; }
+  .speed-control { display: grid; width: 100%; max-width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem; }
+  .speed-control > span { grid-column: 1 / -1; }
+  .speed-control > button { width: 100%; min-width: 0; }
+  .sim-frame { min-height: 14rem; }
+}

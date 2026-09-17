@@ -1,0 +1,206 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  line-height: 1.55;
+  color: #161616;
+  background: #fff;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  min-width: 320px;
+  margin: 0;
+}
+
+a { color: inherit; }
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+code,
+pre,
+th {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.readme-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .8rem max(1rem, calc((100vw - 1120px) / 2));
+  border-bottom: 1px solid currentColor;
+  font-size: .9rem;
+}
+
+.readme-layout {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 58rem);
+  gap: 3rem;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 3.5rem 1rem 6rem;
+}
+
+.readme-nav {
+  position: sticky;
+  top: 1.25rem;
+  align-self: start;
+  font-size: .84rem;
+}
+
+.readme-nav p {
+  margin: 0 0 .5rem;
+  font-weight: 700;
+}
+
+.readme-nav nav {
+  display: grid;
+  gap: .35rem;
+}
+
+.readme-nav a {
+  text-decoration: none;
+}
+
+.readme-nav a:hover { text-decoration: underline; }
+
+.readme-document {
+  min-width: 0;
+  max-width: 75ch;
+}
+
+.readme-document h1,
+.readme-document h2,
+.readme-document h3 {
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.readme-document h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: -.035em;
+}
+
+.readme-document h2 {
+  margin: 3.5rem 0 .85rem;
+  padding-top: 1rem;
+  border-top: 1px solid currentColor;
+  font-size: 1.5rem;
+  letter-spacing: -.02em;
+  scroll-margin-top: 1.25rem;
+}
+
+.readme-document h3 {
+  margin: 2rem 0 .65rem;
+  font-size: 1.05rem;
+  scroll-margin-top: 1.25rem;
+}
+
+.readme-document p {
+  margin: 0 0 1rem;
+}
+
+.readme-document ul {
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+}
+
+.readme-document li { margin: .35rem 0; }
+
+.readme-document code {
+  padding: .08em .3em;
+  background: #f0f0f0;
+  border: 1px solid #d6d6d6;
+  font-size: .9em;
+}
+
+.readme-document pre {
+  max-width: 100%;
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid currentColor;
+  background: #f7f7f7;
+  line-height: 1.45;
+}
+
+.readme-document pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.readme-table-wrap {
+  max-width: calc(100vw - 2rem);
+  margin: 1.25rem 0 1.75rem;
+  overflow-x: auto;
+}
+
+.readme-document table {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+  font-size: .92rem;
+}
+
+.readme-document th,
+.readme-document td {
+  padding: .65rem .7rem;
+  border: 1px solid #999;
+  text-align: left;
+  vertical-align: top;
+}
+
+.readme-document th {
+  background: #f0f0f0;
+  font-size: .78rem;
+  letter-spacing: .025em;
+  text-transform: uppercase;
+}
+
+.readme-document td:first-child {
+  width: 11rem;
+  font-weight: 700;
+}
+
+.readme-document hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+}
+
+.readme-error {
+  padding: 1rem;
+  border: 1px solid currentColor;
+}
+
+@media (max-width: 760px) {
+  .readme-header { padding-inline: .75rem; }
+
+  .readme-layout {
+    display: block;
+    padding: 2rem .75rem 4rem;
+  }
+
+  .readme-nav {
+    position: static;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .readme-nav nav { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
+
+  .readme-document h2 { margin-top: 2.75rem; }
+}
+
+@media (max-width: 430px) {
+  .readme-header { align-items: flex-start; flex-direction: column; gap: .25rem; }
+  .readme-document h1 { font-size: 2.25rem; }
+}
