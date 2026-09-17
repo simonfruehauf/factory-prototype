@@ -115,6 +115,47 @@ h2 { font-size: 1.2rem; line-height: 1.2; }
   text-align: left;
 }
 
+.tool-button {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  column-gap: .5rem;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.tool-button > strong,
+.tool-button > small {
+  grid-column: 2;
+}
+
+.tool-sprite {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  pointer-events: none;
+  width: 2rem;
+  height: 2rem;
+  background-image: url("./assets/machine-sprites.png");
+  background-repeat: no-repeat;
+  background-size: 16rem 8rem;
+  image-rendering: pixelated;
+}
+
+.tool-sprite--quarry { background-position: -6rem -4rem; }
+.tool-sprite--area-counter,
+.tool-sprite--claw { background-position: -10rem -4rem; }
+.tool-sprite--claw { opacity: .34; }
+.tool-sprite--conveyor { background-position: 0 -4rem; }
+.tool-sprite--wall { background-position: 0 0; }
+.tool-sprite--sifter { background-position: -12rem -4rem; }
+.tool-sprite--washer { background-position: 0 -6rem; }
+.tool-sprite--pump { background-position: -2rem -6rem; }
+.tool-sprite--furnace { background-position: -4rem -6rem; }
+.tool-sprite--gold-press { background-position: -6rem -6rem; }
+.tool-sprite--quartz-press { background-position: -8rem -6rem; }
+.tool-sprite--heat-bank { background-position: -4rem -2rem; }
+.tool-sprite--filter { background-position: -14rem -2rem; }
+.tool-sprite--launcher { background-position: -10rem -2rem; }
+
 .tool-button small,
 .material-button small {
   display: block;
