@@ -49,13 +49,24 @@ const rgbCache = Object.fromEntries(Object.entries(COLORS).map(([id, color]) => 
 export function resizeCanvas() {
   const frame = document.getElementById("canvas-wrap");
   if (!frame) return;
-  const rawScale = Math.min(frame.clientWidth / GRID_W, frame.clientHeight / GRID_H);
+  const frameStyle = getComputedStyle(frame);
+  const horizontalPadding = parseFloat(frameStyle.paddingLeft) + parseFloat(frameStyle.paddingRight);
+  const verticalPadding = parseFloat(frameStyle.paddingTop) + parseFloat(frameStyle.paddingBottom);
+  const availableWidth = frame.clientWidth - horizontalPadding;
+  const availableHeight = frame.clientHeight - verticalPadding;
+  const rawScale = Math.min(availableWidth / GRID_W, availableHeight / GRID_H);
   if (rawScale <= 0) return;
-  // Keep the displayed raster at an integer scale on roomy layouts. A
-  // fractional canvas scale makes even a crisp 8x8 sprite look soft.
-  const scale = rawScale >= 2 ? Math.floor(rawScale) : rawScale;
+  // Keep integer scaling when it is close to the available size. On very
+  // wide fields, using the full safe scale avoids large letterbox bands.
+  const integerScale = Math.floor(rawScale);
+  const scale = rawScale >= 2 && rawScale - integerScale < 0.12 ? integerScale : rawScale;
   canvas.style.width = `${Math.floor(GRID_W * scale)}px`;
   canvas.style.height = `${Math.floor(GRID_H * scale)}px`;
+}
+
+const canvasFrame = document.getElementById("canvas-wrap");
+if (canvasFrame && typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(() => resizeCanvas()).observe(canvasFrame);
 }
 
 function clamp(value) { return Math.max(0, Math.min(255, value)); }
