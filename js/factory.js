@@ -1,15 +1,19 @@
 import {
   AIR,
   BUILD_SIZE,
+  CONCENTRATE,
   FIRE,
   FILTER_MATERIALS,
   GOLD,
+  GRIT,
   GRID_H,
   GRID_W,
+  INGOT,
   LAVA,
   LIQUID_GLASS,
   LIQUID_GOLD,
   MACHINE_META,
+  QUARTZ,
   RESIDUE,
   SAND,
   SMOKE,
@@ -24,7 +28,7 @@ import { cellId, currentGrid, idx, inBounds, packCell, randInt, setCell } from "
 
 // The factory is an overlay on the same material grid. It owns machine
 // placement and timing only. Materials remain in currentGrid at all times.
-let nextMachineNumber = 6;
+let nextMachineNumber = 1;
 let nextFlightNumber = 1;
 const HEAT_SOURCE_RATES = { [FIRE]: 10, [SPARK]: 18, [LAVA]: 24 };
 const HEAT_TRANSFER_RATE = 12;
@@ -34,6 +38,16 @@ const LAUNCH_HORIZONTAL_SPEED = 30;
 const LAUNCH_INITIAL_VERTICAL_SPEED = -52;
 const LAUNCH_GRAVITY = 92;
 const LAUNCH_RANGE = 40;
+const PRESS_CAPACITY = BUILD_SIZE * BUILD_SIZE;
+const PROGRESSION_MILESTONES = [
+  { id: "residue", material: RESIDUE, threshold: 24, unlocks: ["sifter", "filter"] },
+  { id: "grit", material: GRIT, threshold: 16, unlocks: ["washer", "pump"] },
+  { id: "concentrate", material: CONCENTRATE, threshold: 8, unlocks: ["furnace", "heat-bank"] },
+  { id: "quartz", material: QUARTZ, threshold: 8, unlocks: ["gold-press", "quartz-press"] },
+  { id: "ingot", material: INGOT, threshold: 1, unlocks: [], completion: true },
+];
+const PROGRESSION_START_TOOLS = ["select", "erase", "quarry", "area-counter", "conveyor", "wall", "launcher"];
+const ALL_LEGACY_TOOLS = ["select", "erase", ...Object.keys(MACHINE_META)];
 
 function defaultDirection(type) {
   if (type === "launcher") return "default";
@@ -43,6 +57,17 @@ function defaultDirection(type) {
 
 function defaultFilterMaterials() {
   return FILTER_MATERIALS.map((material) => material.id);
+}
+
+function createProgressionState(mode = "progression") {
+  return {
+    mode,
+    unlockedTools: mode === "legacy" ? [...ALL_LEGACY_TOOLS] : [...PROGRESSION_START_TOOLS],
+    completedMilestones: [],
+    selectedMaterial: RESIDUE,
+    completed: false,
+    upgrades: { quarryRate: 1 },
+  };
 }
 
 function machineContainsCell(machine, x, y) {
@@ -72,21 +97,28 @@ function makeMachine(type, x, y, options = {}) {
     cycles: 0,
     active: true,
     blocked: false,
+    blockReason: "",
     heat: 0,
     heatCapacity: meta.heatCapacity || 100,
+    fill: 0,
+    fillCapacity: PRESS_CAPACITY,
+    areaMaterial: options.areaMaterial || RESIDUE,
+    lastAreaCount: 0,
   };
 }
 
 export function createStarterFactory() {
-  nextMachineNumber = 6;
+  nextMachineNumber = 1;
   nextFlightNumber = 1;
   return {
-    // The starter line now contains only the heat bank. New machines are
-    // placed into the empty field by the player.
-    machines: [makeMachine("heat-bank", 136, 64)],
+    machines: [
+      makeMachine("quarry", 40, 32),
+      makeMachine("area-counter", 40, 240, { areaMaterial: RESIDUE }),
+    ],
     flights: [],
     elapsed: 0,
-    stats: { cycles: 0, totalProduced: 0, mined: 0, savedAt: null },
+    stats: { cycles: 0, totalProduced: 0, mined: 0, ingots: 0, savedAt: null },
+    progression: createProgressionState(),
   };
 }
 
@@ -100,11 +132,20 @@ export function getSelectedMachine(factoryState, id) {
   return factoryState.machines.find((machine) => machine.id === id) || null;
 }
 
+export function isToolUnlocked(factoryState, type) {
+  if (factoryState?.progression?.mode === "legacy") return true;
+  return factoryState?.progression?.unlockedTools?.includes(type) || false;
+}
+
+function isNonBlockingMachine(type) {
+  return ["launcher", "area-counter", "gold-press", "quartz-press"].includes(type);
+}
+
 export function isMachineCell(factoryState, x, y, materialId = null) {
   const machines = factoryState.machines.filter((machine) => machineContainsCell(machine, x, y));
   if (!machines.length) return false;
   return machines.some((machine) => {
-    if (machine.type === "launcher") return false;
+    if (isNonBlockingMachine(machine.type)) return false;
     if (machine.type === "filter") {
       if (materialId === null || materialId === AIR) return false;
       const selected = machine.filterMaterials || [];
@@ -112,6 +153,52 @@ export function isMachineCell(factoryState, x, y, materialId = null) {
     }
     return true;
   });
+}
+
+export function getPressPartner(factoryState, machine) {
+  if (!machine || !["gold-press", "quartz-press"].includes(machine.type)) return null;
+  const partnerType = machine.type === "gold-press" ? "quartz-press" : "gold-press";
+  return factoryState.machines.find((other) => (
+    other.type === partnerType
+      && other.y === machine.y
+      && Math.abs(other.x - machine.x) === BUILD_SIZE
+  )) || null;
+}
+
+export function getAreaConnectedCount(factoryState, machine, materialId = machine?.areaMaterial || RESIDUE) {
+  if (!machine || machine.type !== "area-counter") return 0;
+  const grid = currentGrid();
+  const pending = [machine];
+  const connectedCounters = new Set([machine.id]);
+  const countedCells = new Set();
+  let total = 0;
+  while (pending.length) {
+    const counter = pending.shift();
+    for (const other of factoryState.machines) {
+      if (
+        other.type === "area-counter"
+        && other.areaMaterial === materialId
+        && !connectedCounters.has(other.id)
+        && touchesMachine(counter, other)
+      ) {
+        connectedCounters.add(other.id);
+        pending.push(other);
+      }
+    }
+  }
+
+  for (const counter of factoryState.machines) {
+    if (!connectedCounters.has(counter.id)) continue;
+    for (let y = counter.y; y < counter.y + BUILD_SIZE; y += 1) {
+      for (let x = counter.x; x < counter.x + BUILD_SIZE; x += 1) {
+        const cellIndex = idx(x, y);
+        if (countedCells.has(cellIndex)) continue;
+        countedCells.add(cellIndex);
+        if (cellId(grid[cellIndex]) === materialId) total += 1;
+      }
+    }
+  }
+  return total;
 }
 
 export function isHeatedCell(factoryState, x, y) {
@@ -150,6 +237,7 @@ function footprintIsClear(factoryState, x, y) {
 
 export function canPlaceMachine(factoryState, type, x, y, allowOverlap = false) {
   return Boolean(MACHINE_META[type])
+    && isToolUnlocked(factoryState, type)
     && inBounds(x, y)
     && x + BUILD_SIZE <= GRID_W
     && y + BUILD_SIZE <= GRID_H
@@ -194,8 +282,13 @@ export function getWallLineCells(start, end) {
   const startY = Math.round(start.y / BUILD_SIZE);
   const endX = Math.round(end.x / BUILD_SIZE);
   const endY = Math.round(end.y / BUILD_SIZE);
-  const deltaX = endX - startX;
-  const deltaY = endY - startY;
+  let deltaX = endX - startX;
+  let deltaY = endY - startY;
+  if (deltaX !== 0 && deltaY !== 0 && Math.abs(deltaX) !== Math.abs(deltaY)) {
+    const diagonalLength = Math.min(Math.abs(deltaX), Math.abs(deltaY));
+    deltaX = Math.sign(deltaX) * diagonalLength;
+    deltaY = Math.sign(deltaY) * diagonalLength;
+  }
   const diagonal = deltaX !== 0 && deltaY !== 0;
   const cells = [];
   const steps = Math.max(Math.abs(deltaX), Math.abs(deltaY));
@@ -209,14 +302,38 @@ export function getWallLineCells(start, end) {
   return cells.length ? cells : [{ x: start.x, y: start.y, shape: "full" }];
 }
 
+export function getWallAreaCells(start, end) {
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  const cells = [];
+  for (let y = minY; y <= maxY; y += BUILD_SIZE) {
+    for (let x = minX; x <= maxX; x += BUILD_SIZE) cells.push({ x, y, shape: "full" });
+  }
+  return cells;
+}
+
 export function placeWallLine(factoryState, start, end, allowOverlap = false) {
   const cells = getWallLineCells(start, end);
   if (cells.some(({ x, y }) => !canPlaceMachine(factoryState, "wall", x, y, allowOverlap))) return [];
   return cells.map(({ x, y, shape }) => placeMachine(factoryState, "wall", x, y, { shape, allowOverlap }));
 }
 
+export function placeWallArea(factoryState, start, end, allowOverlap = false) {
+  const cells = getWallAreaCells(start, end);
+  if (cells.some(({ x, y }) => !canPlaceMachine(factoryState, "wall", x, y, allowOverlap))) return [];
+  return cells.map(({ x, y, shape }) => placeMachine(factoryState, "wall", x, y, { shape, allowOverlap }));
+}
+
 export function removeMachineAt(factoryState, x, y) {
-  const machine = getMachineAtCell(factoryState, x, y);
+  const machine = getMachineAtCell(factoryState, x, y) || [...factoryState.machines].reverse().find((candidate) => (
+    candidate.type === "wall"
+      && x >= candidate.x
+      && x < candidate.x + BUILD_SIZE
+      && y >= candidate.y
+      && y < candidate.y + BUILD_SIZE
+  ));
   if (!machine) return false;
   factoryState.machines = factoryState.machines.filter((item) => item.id !== machine.id);
   return true;
@@ -388,6 +505,190 @@ function moveConveyors(factoryState, dt) {
       segment.progress = Math.min(1, segment.beltTimer / interval);
     }
     if (!moved) for (const segment of run) segment.blocked = true;
+  }
+}
+
+function recordProduction(factoryState, materialId, amount = 1) {
+  factoryState.stats.totalProduced = (factoryState.stats.totalProduced || 0) + amount;
+  factoryState.stats.produced = factoryState.stats.produced || {};
+  factoryState.stats.produced[materialId] = (factoryState.stats.produced[materialId] || 0) + amount;
+}
+
+function edgeCells(machine) {
+  const cells = [];
+  for (let x = machine.x; x < machine.x + BUILD_SIZE; x += 1) cells.push([x, machine.y - 1], [x, machine.y + BUILD_SIZE]);
+  for (let y = machine.y; y < machine.y + BUILD_SIZE; y += 1) cells.push([machine.x - 1, y], [machine.x + BUILD_SIZE, y]);
+  return cells.filter(([x, y]) => inBounds(x, y));
+}
+
+function findEdgeInput(machine, materialId, includeBody = false) {
+  const grid = currentGrid();
+  const candidates = includeBody
+    ? [...Array.from({ length: BUILD_SIZE }, (_, y) => Array.from({ length: BUILD_SIZE }, (_, x) => [machine.x + x, machine.y + y])).flat(), ...edgeCells(machine)]
+    : edgeCells(machine);
+  return candidates.find(([x, y]) => cellId(grid[idx(x, y)]) === materialId) || null;
+}
+
+function findOutputCell(factoryState, machine, offset = 3) {
+  const x = machine.x + Math.max(0, Math.min(BUILD_SIZE - 1, offset));
+  const y = machine.y + BUILD_SIZE;
+  if (!inBounds(x, y) || cellId(currentGrid()[idx(x, y)]) !== AIR || isMachineCell(factoryState, x, y, null)) return null;
+  return [x, y];
+}
+
+function processQuarry(factoryState, machine) {
+  const amount = randInt(5, 8);
+  const outputY = machine.y + BUILD_SIZE;
+  const outputCells = [];
+  const grid = currentGrid();
+  for (let x = machine.x; x < machine.x + BUILD_SIZE && outputCells.length < amount; x += 1) {
+    if (!inBounds(x, outputY) || cellId(grid[idx(x, outputY)]) !== AIR || isMachineCell(factoryState, x, outputY, null)) continue;
+    outputCells.push([x, outputY]);
+  }
+  if (outputCells.length < amount) return false;
+  for (const [x, y] of outputCells) setCell(x, y, packCell(RESIDUE, 0));
+  machine.cycles += 1;
+  factoryState.stats.mined = (factoryState.stats.mined || 0) + amount;
+  recordProduction(factoryState, RESIDUE, amount);
+  return true;
+}
+
+function processSifter(factoryState, machine) {
+  const input = findEdgeInput(machine, RESIDUE);
+  const concentrate = machine.cycles % 5 === 4;
+  const outputMaterial = concentrate ? CONCENTRATE : GRIT;
+  const output = findOutputCell(factoryState, machine, concentrate ? 5 : 2);
+  if (!input || !output) return false;
+  const grid = currentGrid();
+  grid[idx(input[0], input[1])] = packCell(AIR, 0);
+  grid[idx(output[0], output[1])] = packCell(outputMaterial, 0);
+  machine.cycles += 1;
+  recordProduction(factoryState, outputMaterial);
+  return true;
+}
+
+function processWasher(factoryState, machine) {
+  const grit = findEdgeInput(machine, GRIT);
+  const water = findEdgeInput(machine, WATER);
+  const output = findOutputCell(factoryState, machine, 3);
+  if (!grit || !water || !output) return false;
+  const grid = currentGrid();
+  grid[idx(grit[0], grit[1])] = packCell(AIR, 0);
+  grid[idx(water[0], water[1])] = packCell(AIR, 0);
+  grid[idx(output[0], output[1])] = packCell(QUARTZ, 0);
+  recordProduction(factoryState, QUARTZ);
+  return true;
+}
+
+function processPump(factoryState, machine) {
+  const output = findOutputCell(factoryState, machine, 3);
+  if (!output) return false;
+  setCell(output[0], output[1], packCell(WATER, 0));
+  recordProduction(factoryState, WATER);
+  return true;
+}
+
+function processFurnace(factoryState, machine) {
+  if (!hasHotNeighbor(factoryState, machine) || machine.heat < MELTER_HEAT_COST) return false;
+  const input = findEdgeInput(machine, CONCENTRATE);
+  const output = findOutputCell(factoryState, machine, 3);
+  if (!input || !output) return false;
+  const grid = currentGrid();
+  grid[idx(input[0], input[1])] = packCell(AIR, 0);
+  grid[idx(output[0], output[1])] = packCell(GOLD, 0);
+  machine.heat -= MELTER_HEAT_COST;
+  recordProduction(factoryState, GOLD);
+  return true;
+}
+
+function capturePress(machine) {
+  const materialId = machine.type === "gold-press" ? GOLD : QUARTZ;
+  const grid = currentGrid();
+  let captured = 0;
+  for (let y = machine.y; y < machine.y + BUILD_SIZE && machine.fill < machine.fillCapacity; y += 1) {
+    for (let x = machine.x; x < machine.x + BUILD_SIZE && machine.fill < machine.fillCapacity; x += 1) {
+      const cell = idx(x, y);
+      if (cellId(grid[cell]) !== materialId) continue;
+      grid[cell] = packCell(AIR, 0);
+      machine.fill += 1;
+      captured += 1;
+    }
+  }
+  return captured;
+}
+
+function ingotOutputIsClear(factoryState, goldPress, quartzPress) {
+  const grid = currentGrid();
+  const x = Math.min(goldPress.x, quartzPress.x);
+  const y = goldPress.y + BUILD_SIZE;
+  if (x < 0 || y < 0 || x + BUILD_SIZE > GRID_W || y + BUILD_SIZE > GRID_H) return false;
+  for (let dy = 0; dy < BUILD_SIZE; dy += 1) {
+    for (let dx = 0; dx < BUILD_SIZE; dx += 1) {
+      const gx = x + dx; const gy = y + dy;
+      if (cellId(grid[idx(gx, gy)]) !== AIR || isMachineCell(factoryState, gx, gy, null)) return false;
+    }
+  }
+  return true;
+}
+
+function processPresses(factoryState) {
+  for (const machine of factoryState.machines.filter((item) => item.type === "gold-press")) {
+    const partner = getPressPartner(factoryState, machine);
+    capturePress(machine);
+    machine.blocked = false;
+    machine.blockReason = machine.fill >= machine.fillCapacity ? "full" : "filling";
+    if (!partner) {
+      if (machine.fill >= machine.fillCapacity) {
+        machine.blocked = true;
+        machine.blockReason = "waiting for matching press";
+      }
+      continue;
+    }
+    capturePress(partner);
+    partner.blocked = false;
+    partner.blockReason = partner.fill >= partner.fillCapacity ? "full" : "filling";
+    if (machine.fill < machine.fillCapacity || partner.fill < partner.fillCapacity) {
+      if (machine.fill >= machine.fillCapacity || partner.fill >= partner.fillCapacity) {
+        machine.blocked = true; partner.blocked = true;
+        machine.blockReason = "waiting for matching press";
+        partner.blockReason = "waiting for matching press";
+      }
+      continue;
+    }
+    if (!ingotOutputIsClear(factoryState, machine, partner)) {
+      machine.blocked = true; partner.blocked = true;
+      machine.blockReason = "waiting for output"; partner.blockReason = "waiting for output";
+      continue;
+    }
+    const x = Math.min(machine.x, partner.x);
+    const y = machine.y + BUILD_SIZE;
+    for (let dy = 0; dy < BUILD_SIZE; dy += 1) {
+      for (let dx = 0; dx < BUILD_SIZE; dx += 1) setCell(x + dx, y + dy, packCell(INGOT, 0));
+    }
+    machine.fill = 0; partner.fill = 0;
+    machine.cycles += 1; partner.cycles += 1;
+    factoryState.stats.ingots = (factoryState.stats.ingots || 0) + 1;
+    recordProduction(factoryState, INGOT);
+  }
+}
+
+function updateProgression(factoryState) {
+  const progression = factoryState.progression || createProgressionState("legacy");
+  factoryState.progression = progression;
+  for (const counter of factoryState.machines.filter((machine) => machine.type === "area-counter")) {
+    counter.lastAreaCount = getAreaConnectedCount(factoryState, counter, counter.areaMaterial || RESIDUE);
+  }
+  if (progression.mode === "legacy") return;
+  for (const milestone of PROGRESSION_MILESTONES) {
+    if (progression.completedMilestones.includes(milestone.id)) continue;
+    const reached = factoryState.machines.some((machine) => machine.type === "area-counter" && machine.areaMaterial === milestone.material && machine.lastAreaCount >= milestone.threshold);
+    if (!reached) continue;
+    progression.completedMilestones.push(milestone.id);
+    progression.unlockedTools.push(...milestone.unlocks.filter((tool) => !progression.unlockedTools.includes(tool)));
+    if (milestone.completion) {
+      progression.completed = true;
+      progression.upgrades.quarryRate = 2;
+    }
   }
 }
 
@@ -564,13 +865,17 @@ export function factoryStep(factoryState, dt) {
   evaporateWaterOnPoweredMelters(factoryState);
   advanceLauncherFlights(factoryState, delta);
   moveConveyors(factoryState, delta);
+  processPresses(factoryState);
 
   for (const machine of factoryState.machines) {
     const meta = MACHINE_META[machine.type];
     machine.active = true;
 
+    if (["area-counter", "gold-press", "quartz-press"].includes(machine.type)) continue;
+
     if (machine.type === "heat-bank") {
       machine.blocked = false;
+      machine.blockReason = "";
       machine.progress = machine.heat / machine.heatCapacity;
       continue;
     }
@@ -579,12 +884,14 @@ export function factoryStep(factoryState, dt) {
 
     if (machine.type === "wall") {
       machine.blocked = false;
+      machine.blockReason = "";
       machine.progress = 0;
       continue;
     }
 
     if (machine.type === "filter") {
       machine.blocked = false;
+      machine.blockReason = "";
       machine.progress = 0;
       continue;
     }
@@ -593,19 +900,27 @@ export function factoryStep(factoryState, dt) {
     machine.progress = Math.min(1, machine.timer / meta.cycle);
     if (machine.timer < meta.cycle) continue;
 
-    const completed = machine.type === "launcher"
-      ? processLauncher(factoryState, machine)
-      : processMelter(factoryState, machine);
+    let completed = false;
+    if (machine.type === "launcher") completed = processLauncher(factoryState, machine);
+    else if (machine.type === "melter") completed = processMelter(factoryState, machine);
+    else if (machine.type === "quarry") completed = processQuarry(factoryState, machine);
+    else if (machine.type === "sifter") completed = processSifter(factoryState, machine);
+    else if (machine.type === "washer") completed = processWasher(factoryState, machine);
+    else if (machine.type === "pump") completed = processPump(factoryState, machine);
+    else if (machine.type === "furnace") completed = processFurnace(factoryState, machine);
     if (completed) {
       machine.timer -= meta.cycle;
       machine.progress = Math.min(1, machine.timer / meta.cycle);
       machine.blocked = false;
+      machine.blockReason = "";
     } else {
       machine.timer = meta.cycle;
       machine.progress = 1;
       machine.blocked = true;
+      machine.blockReason = "waiting for input";
     }
   }
+  updateProgression(factoryState);
 }
 
 export function serializeFactory(factoryState) {
@@ -637,12 +952,15 @@ export function restoreFactory(serialized) {
     ...saved,
     machines,
     flights: Array.isArray(saved?.flights) ? saved.flights : [],
-    stats: { ...defaults.stats, ...(saved?.stats || {}) },
+    stats: { ...defaults.stats, ...(saved?.stats || {}), produced: { ...(defaults.stats.produced || {}), ...(saved?.stats?.produced || {}) } },
+    progression: saved?.progression
+      ? { ...createProgressionState(saved.progression.mode || "progression"), ...saved.progression, unlockedTools: saved.progression.mode === "legacy" ? (Array.isArray(saved.progression.unlockedTools) ? saved.progression.unlockedTools : [...ALL_LEGACY_TOOLS]) : [...new Set([...PROGRESSION_START_TOOLS, ...(Array.isArray(saved.progression.unlockedTools) ? saved.progression.unlockedTools : [])])], completedMilestones: Array.isArray(saved.progression.completedMilestones) ? saved.progression.completedMilestones : [] }
+      : createProgressionState("legacy"),
   };
   const highestId = restored.machines.reduce((highest, machine) => {
     const number = Number.parseInt(String(machine.id).replace("m-", ""), 10);
     return Number.isFinite(number) ? Math.max(highest, number) : highest;
-  }, 5);
+  }, 0);
   nextMachineNumber = highestId + 1;
   nextFlightNumber = restored.flights.reduce((highest, flight) => {
     const number = Number.parseInt(String(flight.id).replace("f-", ""), 10);

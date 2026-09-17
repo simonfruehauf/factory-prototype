@@ -15,6 +15,7 @@ body {
 
 button, input { font: inherit; }
 button[aria-pressed="true"] { font-weight: 700; }
+button:disabled { cursor: not-allowed; opacity: .55; }
 h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.1; }
 h2 { font-size: 1.2rem; line-height: 1.2; }
 
@@ -99,6 +100,16 @@ h2 { font-size: 1.2rem; line-height: 1.2; }
   gap: .4rem;
 }
 
+.placement-mode {
+  display: grid;
+  gap: .35rem;
+  margin-top: .75rem;
+}
+
+.placement-mode[hidden] { display: none; }
+.placement-mode > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+.placement-mode button { min-width: 0; }
+
 .tool-button,
 .material-button {
   text-align: left;
@@ -181,6 +192,13 @@ h2 { font-size: 1.2rem; line-height: 1.2; }
 .filter-actions { display: flex; flex-wrap: wrap; gap: .35rem; margin-block: .2rem .1rem; }
 .filter-materials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem .75rem; margin-top: .35rem; }
 .filter-materials label { min-width: 0; overflow-wrap: anywhere; }
+
+.area-select { display: grid; gap: .25rem; }
+.area-select select { width: 100%; }
+.milestone-list { display: grid; gap: .25rem; margin: .75rem 0 0; padding-left: 1.25rem; }
+.milestone-list li { display: flex; justify-content: space-between; gap: .5rem; }
+.milestone-list li.is-complete { text-decoration: line-through; }
+.milestone-list small { white-space: nowrap; }
 
 @media (max-width: 800px) {
   .app-grid { grid-template-columns: 1fr; }

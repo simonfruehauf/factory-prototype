@@ -3,7 +3,7 @@
  * double-buffered baseline, alternating bottom-up sweep, element-owned rules.
  * The optional blocker callback is the only factory-layer extension.
  */
-import { AIR, GRID_W, GRID_H, SAND, WATER, WET_SAND, GOLD, FIRE, WOOD, STONE, GLASS, OIL, ACID, STEAM, SMOKE, LAVA, SPARK, LIQUID_GLASS, LIQUID_GOLD } from "./constants.js";
+import { AIR, GRID_W, GRID_H, SAND, WATER, WET_SAND, GOLD, FIRE, WOOD, STONE, GLASS, OIL, ACID, STEAM, SMOKE, LAVA, SPARK, LIQUID_GLASS, LIQUID_GOLD, RESIDUE, GRIT, CONCENTRATE, QUARTZ, INGOT } from "./constants.js";
 import { cellId, currentGrid, nextGrid, copyCurrentToNext, swapBuffers, idx, inBounds, packCell, setCell, randInt } from "./grid.js";
 import { simulateSand } from "./elements/sand.js";
 import { simulateWetSand } from "./elements/wet-sand.js";
@@ -63,6 +63,11 @@ export function simulateStep(isBlocked = () => false, isHeated = () => false) {
       switch (id) {
         case SAND: simulateSand(read, write, x, y, i, cell, isBlocked); break;
         case GLASS: simulateGlass(read, write, x, y, i, cell, isBlocked); break;
+        case RESIDUE:
+        case GRIT:
+        case CONCENTRATE:
+        case QUARTZ:
+        case INGOT: simulateSand(read, write, x, y, i, cell, isBlocked); break;
         case WET_SAND: simulateWetSand(read, write, x, y, i, cell, isBlocked); break;
         case GOLD: simulateSand(read, write, x, y, i, cell, isBlocked); break;
         case WATER: simulateWater(read, write, x, y, i, cell, isBlocked); break;
@@ -85,27 +90,10 @@ export function simulateStep(isBlocked = () => false, isHeated = () => false) {
 export function seedWorld() {
   currentGrid().fill(packCell(AIR, 0));
   nextGrid().fill(packCell(AIR, 0));
-  // A small physical starter dune.
-  for (let y = 18; y < 48; y += 1) {
-    const width = Math.floor((y - 16) * 1.9);
-    for (let x = 18; x < Math.min(98, 18 + width); x += 1) setCell(x, y, packCell(SAND, 0));
-  }
-  // A pool, with clear air around it so the reference liquid rule can settle.
-  for (let y = 30; y < 52; y += 1) for (let x = 224; x < 278; x += 1) setCell(x, y, packCell(WATER, 0));
-  // A visible contact test and a small shaker feed. These are real pixels in
-  // the field, not factory inventory, so they fall, react, and can be erased.
-  for (let y = 52; y < 60; y += 1) {
-    for (let x = 130; x < 138; x += 1) setCell(x, y, packCell(SAND, 0));
-    for (let x = 138; x < 146; x += 1) setCell(x, y, packCell(WATER, 0));
-  }
-  for (let x = 130; x < 135; x += 1) setCell(x, 63, packCell(WET_SAND, 0));
-  // Pin the starter flame against the heat bank long enough to charge it.
-  setCell(144, 67, packCell(STONE, 0));
-  setCell(145, 67, packCell(STONE, 0));
-  setCell(145, 68, packCell(STONE, 0));
-  setCell(144, 68, packCell(FIRE, 150));
-  // A small lava vent demonstrates the occasional flame emission.
-  for (let y = 138; y < 144; y += 1) for (let x = 190; x < 202; x += 1) setCell(x, y, packCell(LAVA, 220));
+  // Progression starts with an extraction site, not a painted sand dune.
+  // The fire vent remains as a physical heat source for the later furnace.
+  for (let y = 214; y < 220; y += 1) for (let x = 286; x < 300; x += 1) setCell(x, y, packCell(LAVA, 220));
+  for (let y = 220; y < 224; y += 1) for (let x = 282; x < 304; x += 1) setCell(x, y, packCell(STONE, 0));
   for (let x = 2; x < GRID_W - 2; x += 1) for (let y = GRID_H - 4; y < GRID_H; y += 1) setCell(x, y, packCell(STONE, 0));
 }
 

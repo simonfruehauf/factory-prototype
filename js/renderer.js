@@ -1,4 +1,4 @@
-import { AIR, BUILD_SIZE, COLORS, FIRE, GOLD, GRID_H, GRID_W, LIQUID_GLASS, LIQUID_GOLD, RESIDUE, SAND, SMOKE, STONE, STEAM, WATER, WET_SAND } from "./constants.js";
+import { AIR, BUILD_SIZE, COLORS, FIRE, GOLD, GRID_H, GRID_W, INGOT, LIQUID_GLASS, LIQUID_GOLD, QUARTZ, RESIDUE, SAND, SMOKE, STONE, STEAM, WATER, WET_SAND } from "./constants.js";
 import { cellId, cellMeta, currentGrid } from "./grid.js";
 
 const canvas = document.getElementById("sim-canvas");
@@ -28,6 +28,14 @@ const MACHINE_SPRITES = {
   "launcher-default": [40, 8],
   melter: [48, 8],
   filter: [56, 8],
+  quarry: [24, 16],
+  "area-counter": [40, 16],
+  sifter: [48, 16],
+  washer: [0, 24],
+  pump: [8, 24],
+  furnace: [16, 24],
+  "gold-press": [24, 24],
+  "quartz-press": [32, 24],
   cursor: [56, 16],
 };
 const machineSpriteAtlas = new Image();
@@ -35,7 +43,7 @@ let machineSpritesReady = false;
 machineSpriteAtlas.addEventListener("load", () => { machineSpritesReady = true; });
 machineSpriteAtlas.src = new URL("../assets/machine-sprites.png", import.meta.url).href;
 
-const colorVariation = { [SAND]: 10, [WATER]: 7, [WET_SAND]: 8, [GOLD]: 8, [RESIDUE]: 8, [STONE]: 5, [LIQUID_GLASS]: 10, [LIQUID_GOLD]: 10 };
+const colorVariation = { [SAND]: 10, [WATER]: 7, [WET_SAND]: 8, [GOLD]: 8, [RESIDUE]: 8, [STONE]: 5, [LIQUID_GLASS]: 10, [LIQUID_GOLD]: 10, [INGOT]: 4, [QUARTZ]: 8 };
 const rgbCache = Object.fromEntries(Object.entries(COLORS).map(([id, color]) => [id, color]));
 
 export function resizeCanvas() {
@@ -99,8 +107,6 @@ function drawGrid(gridVisible) {
 }
 
 function drawMachine(machine, factoryState) {
-  // The PNG sprite is the complete machine visual. Do not add selection
-  // chrome, labels, status pixels, progress bars, or procedural overlays.
   drawMachineSprite(machine, factoryState);
 }
 
@@ -116,22 +122,36 @@ function previewMachine(previewCell, preview) {
 }
 
 function drawBuildPreview(factoryState, preview) {
-  if (!preview?.cells?.length) return;
+  if (!preview) return;
   if (preview.type === "erase") {
-    const machine = preview.cells[0];
+    const minX = Math.min(preview.start.x, preview.end.x);
+    const minY = Math.min(preview.start.y, preview.end.y);
+    const width = Math.abs(preview.end.x - preview.start.x) + BUILD_SIZE;
+    const height = Math.abs(preview.end.y - preview.start.y) + BUILD_SIZE;
+    const selectedMachines = factoryState.machines.filter((machine) => (
+      machine.x >= minX
+      && machine.x <= minX + width - BUILD_SIZE
+      && machine.y >= minY
+      && machine.y <= minY + height - BUILD_SIZE
+    ));
     ctx.save();
-    ctx.fillStyle = "rgba(190, 64, 64, .22)";
+    ctx.fillStyle = "rgba(190, 64, 64, .18)";
     ctx.strokeStyle = "rgba(190, 64, 64, .95)";
-    ctx.lineWidth = 1;
-    ctx.fillRect(machine.x, machine.y, BUILD_SIZE, BUILD_SIZE);
-    ctx.strokeRect(machine.x + .5, machine.y + .5, BUILD_SIZE - 1, BUILD_SIZE - 1);
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 2]);
+    ctx.fillRect(minX, minY, width, height);
+    ctx.strokeRect(minX + .5, minY + .5, width - 1, height - 1);
+    ctx.setLineDash([]);
     ctx.beginPath();
-    ctx.moveTo(machine.x + 1, machine.y + 1); ctx.lineTo(machine.x + BUILD_SIZE - 1, machine.y + BUILD_SIZE - 1);
-    ctx.moveTo(machine.x + BUILD_SIZE - 1, machine.y + 1); ctx.lineTo(machine.x + 1, machine.y + BUILD_SIZE - 1);
+    selectedMachines.forEach((machine) => {
+      ctx.moveTo(machine.x + 1, machine.y + 1); ctx.lineTo(machine.x + BUILD_SIZE - 1, machine.y + BUILD_SIZE - 1);
+      ctx.moveTo(machine.x + BUILD_SIZE - 1, machine.y + 1); ctx.lineTo(machine.x + 1, machine.y + BUILD_SIZE - 1);
+    });
     ctx.stroke();
     ctx.restore();
     return;
   }
+  if (!preview.cells?.length) return;
   const previewMachines = preview.cells.map((cell) => previewMachine(cell, preview));
   const previewState = { ...factoryState, machines: [...factoryState.machines, ...previewMachines] };
   ctx.save();
@@ -150,7 +170,27 @@ function drawCursor(pointer) {
   );
 }
 
-export function renderFrame(factoryState, { gridVisible = true, preview = null, pointer = null } = {}) {
+function drawClaw(claw) {
+  if (!claw?.rect) return;
+  ctx.save();
+  for (const cell of claw.cells || []) {
+    const color = COLORS[cellId(cell.value)] || COLORS[AIR];
+    ctx.fillStyle = `rgb(${color[0]} ${color[1]} ${color[2]})`;
+    ctx.fillRect(claw.rect.x + cell.x, claw.rect.y + cell.y, 1, 1);
+  }
+  if (machineSpritesReady) {
+    ctx.globalAlpha = 0.34;
+    const sprite = MACHINE_SPRITES["area-counter"];
+    ctx.drawImage(
+      machineSpriteAtlas,
+      sprite[0], sprite[1], MACHINE_SPRITE_SIZE, MACHINE_SPRITE_SIZE,
+      claw.rect.x, claw.rect.y, MACHINE_SPRITE_SIZE, MACHINE_SPRITE_SIZE,
+    );
+  }
+  ctx.restore();
+}
+
+export function renderFrame(factoryState, { gridVisible = true, preview = null, pointer = null, claw = null } = {}) {
   const grid = currentGrid();
   for (let i = 0, pixel = 0; i < grid.length; i += 1, pixel += 4) {
     const cell = grid[i]; const id = cellId(cell); const base = rgbCache[id] || rgbCache[AIR]; const variation = colorVariation[id] || 0; const noise = pseudo(i);
@@ -165,7 +205,8 @@ export function renderFrame(factoryState, { gridVisible = true, preview = null, 
   drawGrid(gridVisible);
   for (const machine of factoryState.machines) drawMachine(machine, factoryState);
   drawBuildPreview(factoryState, preview);
-  drawCursor(pointer);
+  if (claw) drawClaw(claw);
+  else drawCursor(pointer);
 }
 
 export function canvasPoint(event) {

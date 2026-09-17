@@ -2,6 +2,12 @@
 
 An idle factory layer built on top of a falling-sand cellular automata grid, presented as a mechanical browser prototype.
 
+## Progression run
+
+The normal reset starts with a quarry and area counter. The quarry releases a batch of 5-8 physical residue cells every 3 seconds. Build a connected residue area to unlock the sifter, then route grit through the washer and concentrate through the furnace. Quartz and gold fill two separate, horizontally adjacent press machines. When both 8 x 8 press chambers contain 64 matching cells, they drop one physical 8 x 8 ingot block below them.
+
+The area counter is collisionless. Select residue, grit, concentrate, quartz, gold, or ingot in its inspector. It flood-fills orthogonally from the counter perimeter, follows only the selected material ID, and sums matching cells from every touching component. Other connected materials are never included in the count.
+
 ## Machines & materials
 
 This is the complete interaction reference for the current runtime. The simulation moves real field pixels. Machines do not use hidden inventories or production buffers.
@@ -47,22 +53,23 @@ Machine-to-machine rules:
 | Glass | Static solid | Is produced by lava touching sand or liquid glass cooling. It is not dissolved by the current acid rules. |
 | Ice, gunpowder, plant, metal, spawner, residue | Registered material types | These are present in the element registry or legacy rules, but are not currently paintable from the toolbar and do not have a complete active simulation rule in this runtime. |
 
-The current toolbar paints sand, water, fire, lava, and sparks. Wet sand, steam, smoke, glass, liquid glass, liquid gold, and cooled outputs are created by simulation. The other registered materials remain available to the data model for future tools and interactions.
+Progression mode does not expose a material paint toolbar. Residue, water, grit, concentrate, quartz, gold, and ingot are produced physically by machines. Legacy v2 saves remain loadable as unrestricted sandbox saves.
 
 ## Controls
 
 - Space pauses or runs the simulation.
-- 1, 2, 3, 4, and 5 select sand, water, fire, lava, and spark.
-- H selects a heat bank, C selects a conveyor belt, L selects a launcher, M selects a melter, F selects a filter, and W selects a wall.
+- Q selects a quarry, A an area counter, C a conveyor, W a wall, S a sifter, U a washer, P a water pump, N a furnace, G a gold press, and Z a quartz press.
+- L selects a launcher from the start. H selects a heat bank, M a legacy melter, and F a filter once they are unlocked.
 - Drag with the conveyor tool to place a line. Drag the launcher tool to aim up-left or up-right, or click for its default sprite.
 - Drag the wall tool horizontally or vertically for full blocks. A diagonal drag places diagonally cut half-block slopes.
+- Select the claw with O. Press on a material to pick up every matching cell inside the 8 x 8 outline, move it with the mouse, and release to drop it.
 - V returns to inspect mode.
-- E paints air to erase material.
+- X selects machine erase.
 - G toggles the 8 x 8 build grid.
 - Delete removes the selected machine.
 - Ctrl+S saves the current grid and factory to local storage.
 
-One heat bank is already installed beside a small pinned flame. Place machines into any 8 x 8 bay that does not already contain another machine, even when material is passing through it. Paint material into the field to experiment with the material layer directly.
+The progression starter unlocks the quarry, area counter, conveyor, wall, and launcher. It installs the quarry and area counter. Place machines into any 8 x 8 bay that does not already contain another machine, even when material is passing through it. The area counter, launcher, and press chambers are the intentional non-blocking machine bodies.
 
 ## Run
 
@@ -84,4 +91,4 @@ Basic machines have no power cost. The heat bank is a separate thermal state: to
 
 The material layer follows the structure and techniques shown in [Mahnoor-Zaffar's falling-sand simulator](https://github.com/Mahnoor-Zaffar/The-2D-Falling-Sand-Physics-Simulator): double buffers, packed cells, bottom-up alternating sweeps, element-owned rules, and a Bresenham brush. The factory layer is original code over that grid. Liquid glass uses a deterministic 30-second cooling timer and is reheated while directly supported by a powered heat bank or heated machine. Machine behavior follows the documented [Sandustry water rules](https://wiki.hoodedhorse.com/Sandustry/Water), [wet sand reaction](https://wiki.hoodedhorse.com/Sandustry/Wet_Sand), and [shaker behavior](https://wiki.hoodedhorse.com/Sandustry/Shaker).
 
-`assets/machine-sprites.png` is a 64x24 atlas of 8x8 sprites. Its first row is wall, two slopes, single conveyor, left-end right, left-end left, right-end right, and right-end left. Its second row is middle conveyor right, middle conveyor left, heat bank, launcher right, launcher left, launcher default, melter, and the pointer cursor. Its third row begins with the single conveyor sprites for right and left. `assets/cursor-large.png` is a 4x nearest-neighbor upscale of that final tile and is used across the page. The browser cursor is hidden over the canvas, where the original 8x8 tile is drawn at the active material-field cell.
+`assets/machine-sprites.png` is an 8x8 tile atlas. Existing tiles use indices 0 through 18 and 23. Add the progression machine art at these indices: 19 quarry, 21 area counter, 22 sifter, 24 washer, 25 water pump, 26 furnace, 27 gold press, and 28 quartz press. Index 20 is unused, and indexes 29 through 31 are reserved. The atlas therefore needs a fourth row at y 24 for indices 24 through 31. The renderer uses the sprite sheet only for machine visuals. `assets/cursor-large.png` is a 4x nearest-neighbor upscale of the cursor tile and is used across the page. The browser cursor is hidden over the canvas, where the original 8x8 tile is drawn at the active material-field cell.

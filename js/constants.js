@@ -31,6 +31,10 @@ export const RESIDUE   = 19;
 export const SPARK     = 20;
 export const LIQUID_GLASS = 21;
 export const LIQUID_GOLD  = 22;
+export const GRIT         = 23;
+export const CONCENTRATE  = 24;
+export const QUARTZ       = 25;
+export const INGOT        = 26;
 
 // ── Bit-packing layout ─────────────────────────────────────────────────
 //   bits  0–7  : element ID
@@ -144,6 +148,10 @@ export const COLORS = {
   [SPARK]:     [255, 210, 104],
   [LIQUID_GLASS]: [255, 152, 72],
   [LIQUID_GOLD]:  [255, 198, 54],
+  [GRIT]:        [170, 158, 132],
+  [CONCENTRATE]: [86, 74, 62],
+  [QUARTZ]:      [202, 220, 226],
+  [INGOT]:       [236, 226, 178],
 };
 
 // Per-element color variation ranges for visual richness
@@ -170,6 +178,10 @@ export const COLOR_VARIATION = {
   [SPARK]:     { r: [-18, 18], g: [-12, 12], b: [-8, 8] },
   [LIQUID_GLASS]: { r: [-12, 12], g: [-12, 12], b: [-8, 8] },
   [LIQUID_GOLD]:  { r: [-12, 12], g: [-10, 10], b: [-6, 6] },
+  [GRIT]:        { r: [-10, 10], g: [-8, 8], b: [-6, 6] },
+  [CONCENTRATE]: { r: [-8, 8], g: [-7, 7], b: [-5, 5] },
+  [QUARTZ]:      { r: [-8, 8], g: [-6, 6], b: [-4, 4] },
+  [INGOT]:       { r: [-4, 4], g: [-4, 4], b: [-3, 3] },
 };
 
 // ── Element registry (for UI generation) ───────────────────────────────
@@ -192,6 +204,10 @@ export const ELEMENTS = [
   { id: SPARK,     name: "Spark",     key: "K", color: "#FFD268", type: "gas" },
   { id: LIQUID_GLASS, name: "Liquid glass", key: "", color: "#FF9848", type: "liquid" },
   { id: LIQUID_GOLD,  name: "Liquid gold",  key: "", color: "#FFC636", type: "liquid" },
+  { id: GRIT, name: "Grit", key: "", color: "#AA9E84", type: "solid" },
+  { id: CONCENTRATE, name: "Concentrate", key: "", color: "#564A3E", type: "solid" },
+  { id: QUARTZ, name: "Quartz", key: "", color: "#CADCE2", type: "solid" },
+  { id: INGOT, name: "Ingot", key: "", color: "#ECE2B2", type: "solid" },
 ];
 
 export const FILTER_MATERIALS = [
@@ -200,6 +216,10 @@ export const FILTER_MATERIALS = [
   { id: GOLD, name: "Gold", color: "#E8B83F", type: "solid" },
   { id: SMOKE, name: "Smoke", color: "#3C3C46", type: "gas" },
   { id: RESIDUE, name: "Residue", color: "#766958", type: "solid" },
+  { id: GRIT, name: "Grit", color: "#AA9E84", type: "solid" },
+  { id: CONCENTRATE, name: "Concentrate", color: "#564A3E", type: "solid" },
+  { id: QUARTZ, name: "Quartz", color: "#CADCE2", type: "solid" },
+  { id: INGOT, name: "Ingot", color: "#ECE2B2", type: "solid" },
 ];
 
 // Density ordering (higher = sinks below lower)
@@ -227,6 +247,10 @@ export const DENSITY = {
   [SPARK]:     4,
   [LIQUID_GLASS]: 140,
   [LIQUID_GOLD]:  320,
+  [GRIT]:        135,
+  [CONCENTRATE]: 180,
+  [QUARTZ]:      220,
+  [INGOT]:       255,
 };
 
 // Elements that emit glow for bloom post-processing
@@ -238,6 +262,14 @@ export const BUILD_SIZE = 8;
 export const SIM_STEP = 1 / 50;
 
 export const MACHINE_META = {
+  quarry: { label: "quarry", short: "Q", cycle: 3, color: "#766958", input: "residue seam", output: "5-8 residue", detail: "releases a batch of 5-8 physical residue cells every 3 seconds" },
+  "area-counter": { label: "area counter", short: "A", cycle: 0, color: "#4A9D9A", input: "selected material inside connected counters", output: "live material count", detail: "counts selected material inside edge-connected counters of the same material" },
+  sifter: { label: "sifter", short: "S", cycle: 0.42, color: "#B39B72", input: "residue", output: "grit / concentrate", detail: "separates residue into grit and concentrate" },
+  washer: { label: "washer", short: "U", cycle: 0.65, color: "#4D9CC2", input: "grit + water", output: "quartz", detail: "washes grit into quartz" },
+  pump: { label: "water pump", short: "P", cycle: 0.7, color: "#4080FF", input: "groundwater", output: "water", detail: "adds physical water to the field" },
+  furnace: { label: "furnace", short: "N", cycle: 0.8, color: "#E7724D", input: "concentrate + heat", output: "gold", detail: "refines concentrate with stored heat" },
+  "gold-press": { label: "gold press", short: "G", cycle: 0, color: "#E8B83F", input: "gold charge", output: "paired ingot", detail: "holds a 64-cell gold charge for the paired press" },
+  "quartz-press": { label: "quartz press", short: "Z", cycle: 0, color: "#CADCE2", input: "quartz charge", output: "paired ingot", detail: "holds a 64-cell quartz charge for the paired press" },
   "heat-bank": { label: "heat bank", short: "H", cycle: 0, color: "#e7724d", input: "fire / sparks / lava", output: "stored heat", detail: "stores heat from touching sources and shares it with touching machines", heatCapacity: 100 },
   conveyor: { label: "conveyor belt", short: "C", cycle: 0.14, color: "#6faeaa", input: "material on top", output: "pile moved one cell", detail: "moves a contiguous physical pile along its direction" },
   launcher: { label: "launcher", short: "L", cycle: 0.12, color: "#a88ce3", input: "material inside", output: "ballistic arc", detail: "accepts pixels inside its no-collision body and launches them on an arc" },

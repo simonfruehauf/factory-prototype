@@ -41,32 +41,32 @@
             <p>8 x 8 pixels</p>
             <div class="build-tools" id="machine-tools">
               <button class="tool-button" type="button" data-tool="select" aria-pressed="true"><strong>inspect</strong><small>select a machine (V)</small></button>
-              <button class="tool-button" type="button" data-tool="erase" aria-pressed="false"><strong>erase machine</strong><small>remove a machine (X)</small></button>
-              <button class="tool-button" type="button" data-tool="heat-bank" aria-pressed="false"><strong>heat bank</strong><small>stores heat (H)</small></button>
+              <button class="tool-button" type="button" data-tool="erase" aria-pressed="false"><strong>erase area</strong><small>drag an area to remove (X)</small></button>
+              <button class="tool-button" type="button" data-tool="quarry" aria-pressed="false"><strong>quarry</strong><small>extracts residue (Q)</small></button>
+              <button class="tool-button" type="button" data-tool="area-counter" aria-pressed="false"><strong>area counter</strong><small>single / area (A / Shift+A)</small></button>
+              <button class="tool-button" type="button" data-tool="claw" aria-pressed="false"><strong>claw</strong><small>pick up / O</small></button>
               <button class="tool-button" type="button" data-tool="conveyor" aria-pressed="false"><strong>conveyor belt</strong><small>drag a line (C)</small></button>
-              <button class="tool-button" type="button" data-tool="launcher" aria-pressed="false"><strong>launcher</strong><small>place anywhere / aim diagonally (L)</small></button>
-              <button class="tool-button" type="button" data-tool="melter" aria-pressed="false"><strong>melter</strong><small>needs touching heat (M)</small></button>
-              <button class="tool-button" type="button" data-tool="filter" aria-pressed="false"><strong>filter</strong><small>allow or block materials (F)</small></button>
-              <button class="tool-button" type="button" data-tool="wall" aria-pressed="false"><strong>wall</strong><small>drag blocks / slopes (W)</small></button>
+              <button class="tool-button" type="button" data-tool="wall" aria-pressed="false"><strong>wall</strong><small>line / area (W / Shift+W)</small></button>
+              <button class="tool-button" type="button" data-tool="sifter" aria-pressed="false"><strong>sifter</strong><small>locked · S</small></button>
+              <button class="tool-button" type="button" data-tool="washer" aria-pressed="false"><strong>washer</strong><small>locked · U</small></button>
+              <button class="tool-button" type="button" data-tool="pump" aria-pressed="false"><strong>water pump</strong><small>locked · P</small></button>
+              <button class="tool-button" type="button" data-tool="furnace" aria-pressed="false"><strong>furnace</strong><small>locked · N</small></button>
+              <button class="tool-button" type="button" data-tool="gold-press" aria-pressed="false"><strong>gold press</strong><small>locked · G</small></button>
+              <button class="tool-button" type="button" data-tool="quartz-press" aria-pressed="false"><strong>quartz press</strong><small>locked · Z</small></button>
+              <button class="tool-button" type="button" data-tool="heat-bank" aria-pressed="false"><strong>heat bank</strong><small>locked · H</small></button>
+              <button class="tool-button" type="button" data-tool="filter" aria-pressed="false"><strong>filter</strong><small>locked · F</small></button>
+              <button class="tool-button" type="button" data-tool="launcher" aria-pressed="false"><strong>launcher</strong><small>place / L</small></button>
             </div>
+            <div id="placement-mode" class="placement-mode" hidden></div>
           </section>
 
-          <section aria-labelledby="material-tools-heading">
-            <h2 id="material-tools-heading">Materials</h2>
-            <div class="material-tools" id="material-tools">
-              <button class="material-button" type="button" data-material="sand" aria-pressed="false">sand (1)</button>
-              <button class="material-button" type="button" data-material="water" aria-pressed="false">water (2)</button>
-              <button class="material-button" type="button" data-material="fire" aria-pressed="false">fire (3)</button>
-              <button class="material-button" type="button" data-material="lava" aria-pressed="false">lava (4)</button>
-              <button class="material-button" type="button" data-material="spark" aria-pressed="false">spark (5)</button>
-              <button class="material-button" type="button" data-material="erase" aria-pressed="false">erase (E)</button>
-            </div>
-            <label class="range-row" for="brush-size">brush size <output id="brush-value">4</output></label>
-            <input id="brush-size" type="range" min="1" max="9" value="4" />
+          <section aria-labelledby="progression-heading">
+            <h2 id="progression-heading">Progression</h2>
+            <div id="progression-content"></div>
           </section>
 
           <p>auto-save: <span id="save-state">local</span></p>
-          <p>space: pause / run<br />g: toggle grid</p>
+          <p>space: pause / run<br />g: toggle grid<br />x: area erase</p>
         </aside>
 
         <section class="simulation-column" aria-label="Factory workspace">
@@ -78,16 +78,17 @@
             <div class="sim-frame" id="canvas-wrap">
               <canvas id="sim-canvas" width="384" height="256" aria-label="Interactive falling sand material field"></canvas>
             </div>
-            <p id="canvas-hint">click an 8 x 8 bay to place or select · x then click to remove · hold ctrl to build over a machine</p>
+            <p id="canvas-hint">click an 8 x 8 bay to place or select · drag an area to remove · hold ctrl to build over a machine</p>
               <span id="cursor-readout">x 00 / y 00</span>
 
             <div class="field-footer">
               <div class="legend" aria-label="Material legend">
-                <span>sand</span>
-                <span>water</span>
-                <span>wet sand</span>
-                <span>liquid glass</span>
-                <span>liquid gold</span>
+                <span>residue</span>
+                <span>grit</span>
+                <span>concentrate</span>
+                <span>quartz</span>
+                <span>gold</span>
+                <span>ingot</span>
               </div>
             </div>
           </div>
