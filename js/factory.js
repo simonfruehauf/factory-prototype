@@ -18,6 +18,7 @@ import {
   SAND,
   SMOKE,
   SPARK,
+  START_AREA_BAYS,
   STEAM,
   STEAM_LIFETIME_MIN,
   STEAM_LIFETIME_MAX,
@@ -42,12 +43,32 @@ const PRESS_CAPACITY = BUILD_SIZE * BUILD_SIZE;
 const PROGRESSION_MILESTONES = [
   { id: "residue", material: RESIDUE, threshold: 24, unlocks: ["sifter", "filter"] },
   { id: "grit", material: GRIT, threshold: 16, unlocks: ["washer", "pump"] },
-  { id: "concentrate", material: CONCENTRATE, threshold: 8, unlocks: ["furnace", "heat-bank"] },
+  { id: "concentrate", material: CONCENTRATE, threshold: 8, unlocks: ["furnace", "heat-bank", "melter"] },
   { id: "quartz", material: QUARTZ, threshold: 8, unlocks: ["gold-press", "quartz-press"] },
   { id: "ingot", material: INGOT, threshold: 1, unlocks: [], completion: true },
 ];
 const PROGRESSION_START_TOOLS = ["select", "erase", "quarry", "area-counter", "conveyor", "wall", "launcher"];
 const ALL_LEGACY_TOOLS = ["select", "erase", ...Object.keys(MACHINE_META)];
+
+function createAreaState() {
+  return {
+    x: 0,
+    y: 0,
+    width: START_AREA_BAYS,
+    height: START_AREA_BAYS,
+    maxWidth: Math.floor(GRID_W / BUILD_SIZE),
+    maxHeight: Math.floor(GRID_H / BUILD_SIZE),
+  };
+}
+
+function createResonanceState() {
+  return {
+    activeUntil: 0,
+    cooldown: 0,
+    pulses: 0,
+    lastMaterial: RESIDUE,
+  };
+}
 
 function defaultDirection(type) {
   if (type === "launcher") return "default";
@@ -112,12 +133,15 @@ export function createStarterFactory() {
   nextFlightNumber = 1;
   return {
     machines: [
-      makeMachine("quarry", 40, 32),
-      makeMachine("area-counter", 40, 240, { areaMaterial: RESIDUE }),
+      makeMachine("quarry", 16, 16),
+      makeMachine("area-counter", 16, 72, { areaMaterial: RESIDUE }),
     ],
     flights: [],
     elapsed: 0,
     stats: { cycles: 0, totalProduced: 0, mined: 0, ingots: 0, savedAt: null },
+    inventory: {},
+    area: createAreaState(),
+    resonance: createResonanceState(),
     progression: createProgressionState(),
   };
 }
@@ -130,6 +154,27 @@ export function getMachineAtCell(factoryState, x, y) {
 
 export function getSelectedMachine(factoryState, id) {
   return factoryState.machines.find((machine) => machine.id === id) || null;
+}
+
+export function isWithinPlayableArea(factoryState, x, y) {
+  const area = factoryState.area || createAreaState();
+  const left = area.x * BUILD_SIZE;
+  const top = area.y * BUILD_SIZE;
+  const right = left + area.width * BUILD_SIZE;
+  const bottom = top + area.height * BUILD_SIZE;
+  return x >= left && y >= top && x + BUILD_SIZE <= right && y + BUILD_SIZE <= bottom;
+}
+
+// The material field remains larger than the build space, but its active
+// boundary is physical: falling material stops at the right and bottom edge
+// until the player buys more bays.
+export function isAreaBoundaryCell(factoryState, x, y) {
+  const area = factoryState.area || createAreaState();
+  const right = area.x * BUILD_SIZE + area.width * BUILD_SIZE;
+  const bottom = area.y * BUILD_SIZE + area.height * BUILD_SIZE;
+  const left = area.x * BUILD_SIZE;
+  const top = area.y * BUILD_SIZE;
+  return (x === right && y >= top && y < bottom) || (y === bottom && x >= left && x < right);
 }
 
 export function isToolUnlocked(factoryState, type) {
@@ -165,13 +210,10 @@ export function getPressPartner(factoryState, machine) {
   )) || null;
 }
 
-export function getAreaConnectedCount(factoryState, machine, materialId = machine?.areaMaterial || RESIDUE) {
-  if (!machine || machine.type !== "area-counter") return 0;
-  const grid = currentGrid();
+function getConnectedAreaCounters(factoryState, machine, materialId) {
+  if (!machine || machine.type !== "area-counter") return [];
   const pending = [machine];
   const connectedCounters = new Set([machine.id]);
-  const countedCells = new Set();
-  let total = 0;
   while (pending.length) {
     const counter = pending.shift();
     for (const other of factoryState.machines) {
@@ -187,18 +229,82 @@ export function getAreaConnectedCount(factoryState, machine, materialId = machin
     }
   }
 
-  for (const counter of factoryState.machines) {
-    if (!connectedCounters.has(counter.id)) continue;
+  return factoryState.machines.filter((counter) => connectedCounters.has(counter.id));
+}
+
+function getAreaMaterialCells(factoryState, machine, materialId) {
+  const grid = currentGrid();
+  const counters = getConnectedAreaCounters(factoryState, machine, materialId);
+  const pending = [];
+  const countedCells = new Set();
+  const addIfMatching = (x, y) => {
+    if (!inBounds(x, y)) return;
+    const cellIndex = idx(x, y);
+    if (countedCells.has(cellIndex) || cellId(grid[cellIndex]) !== materialId) return;
+    countedCells.add(cellIndex);
+    pending.push([x, y]);
+  };
+
+  for (const counter of counters) {
     for (let y = counter.y; y < counter.y + BUILD_SIZE; y += 1) {
-      for (let x = counter.x; x < counter.x + BUILD_SIZE; x += 1) {
-        const cellIndex = idx(x, y);
-        if (countedCells.has(cellIndex)) continue;
-        countedCells.add(cellIndex);
-        if (cellId(grid[cellIndex]) === materialId) total += 1;
-      }
+      for (let x = counter.x; x < counter.x + BUILD_SIZE; x += 1) addIfMatching(x, y);
     }
+    for (const [x, y] of edgeCells(counter)) addIfMatching(x, y);
   }
-  return total;
+
+  while (pending.length) {
+    const [x, y] = pending.shift();
+    addIfMatching(x + 1, y);
+    addIfMatching(x - 1, y);
+    addIfMatching(x, y + 1);
+    addIfMatching(x, y - 1);
+  }
+  return countedCells;
+}
+
+export function getAreaConnectedCount(factoryState, machine, materialId = machine?.areaMaterial || RESIDUE) {
+  if (!machine || machine.type !== "area-counter") return 0;
+  return getAreaMaterialCells(factoryState, machine, materialId).size;
+}
+
+export function collectAreaMaterial(factoryState, machine, materialId = machine?.areaMaterial || RESIDUE) {
+  if (!machine || machine.type !== "area-counter" || materialId === AIR) return 0;
+  const grid = currentGrid();
+  const countedCells = getAreaMaterialCells(factoryState, machine, materialId);
+  let collected = 0;
+
+  for (const cellIndex of countedCells) {
+    if (cellId(grid[cellIndex]) !== materialId) continue;
+    grid[cellIndex] = packCell(AIR, 0);
+    collected += 1;
+  }
+
+  if (collected) {
+    factoryState.inventory = factoryState.inventory || {};
+    factoryState.inventory[materialId] = (factoryState.inventory[materialId] || 0) + collected;
+  }
+  return collected;
+}
+
+export function getExpansionCost(factoryState) {
+  const area = factoryState.area || createAreaState();
+  if (area.width >= area.maxWidth && area.height >= area.maxHeight) return null;
+  const expansionCount = Math.max(0, Math.floor((area.width - START_AREA_BAYS) / 2));
+  return 4 + expansionCount * 3;
+}
+
+export function buyAreaExpansion(factoryState) {
+  const area = factoryState.area || createAreaState();
+  const cost = getExpansionCost(factoryState);
+  const inventory = factoryState.inventory || (factoryState.inventory = {});
+  if (cost === null) return { ok: false, reason: "maxed", cost: null };
+  if ((inventory[GOLD] || 0) < cost) return { ok: false, reason: "need_gold", cost };
+
+  inventory[GOLD] -= cost;
+  area.width = Math.min(area.maxWidth, area.width + 2);
+  area.height = Math.min(area.maxHeight, area.height + 2);
+  factoryState.area = area;
+  return { ok: true, cost, width: area.width, height: area.height };
 }
 
 export function isHeatedCell(factoryState, x, y) {
@@ -241,6 +347,7 @@ export function canPlaceMachine(factoryState, type, x, y, allowOverlap = false) 
     && inBounds(x, y)
     && x + BUILD_SIZE <= GRID_W
     && y + BUILD_SIZE <= GRID_H
+    && isWithinPlayableArea(factoryState, x, y)
     && (allowOverlap || footprintIsClear(factoryState, x, y));
 }
 
@@ -459,7 +566,7 @@ function moveConveyorRun(factoryState, run) {
     let blocked = false;
     for (const [x, y, value] of stack) {
       const targetX = x + payload.direction;
-      if (!inBounds(targetX, y) || isMachineCell(factoryState, targetX, y, cellId(value)) || isLauncherFlightCell(factoryState, targetX, y)) {
+      if (!inBounds(targetX, y) || isAreaBoundaryCell(factoryState, targetX, y) || isMachineCell(factoryState, targetX, y, cellId(value)) || isLauncherFlightCell(factoryState, targetX, y)) {
         blocked = true;
         break;
       }
@@ -530,10 +637,21 @@ function findEdgeInput(machine, materialId, includeBody = false) {
 }
 
 function findOutputCell(factoryState, machine, offset = 3) {
-  const x = machine.x + Math.max(0, Math.min(BUILD_SIZE - 1, offset));
-  const y = machine.y + BUILD_SIZE;
-  if (!inBounds(x, y) || cellId(currentGrid()[idx(x, y)]) !== AIR || isMachineCell(factoryState, x, y, null)) return null;
-  return [x, y];
+  const preferred = Math.max(0, Math.min(BUILD_SIZE - 1, offset));
+  const xOrder = Array.from({ length: BUILD_SIZE }, (_, index) => (preferred + index) % BUILD_SIZE);
+  const candidates = [
+    ...xOrder.map((x) => [machine.x + x, machine.y + BUILD_SIZE]),
+    ...Array.from({ length: BUILD_SIZE }, (_, y) => [machine.x - 1, machine.y + y]),
+    ...Array.from({ length: BUILD_SIZE }, (_, y) => [machine.x + BUILD_SIZE, machine.y + y]),
+    ...xOrder.map((x) => [machine.x + x, machine.y - 1]),
+  ];
+  const grid = currentGrid();
+  return candidates.find(([x, y]) => (
+    inBounds(x, y)
+      && !isAreaBoundaryCell(factoryState, x, y)
+      && cellId(grid[idx(x, y)]) === AIR
+      && !isMachineCell(factoryState, x, y, null)
+  )) || null;
 }
 
 function processQuarry(factoryState, machine) {
@@ -542,7 +660,7 @@ function processQuarry(factoryState, machine) {
   const outputCells = [];
   const grid = currentGrid();
   for (let x = machine.x; x < machine.x + BUILD_SIZE && outputCells.length < amount; x += 1) {
-    if (!inBounds(x, outputY) || cellId(grid[idx(x, outputY)]) !== AIR || isMachineCell(factoryState, x, outputY, null)) continue;
+    if (!inBounds(x, outputY) || isAreaBoundaryCell(factoryState, x, outputY) || cellId(grid[idx(x, outputY)]) !== AIR || isMachineCell(factoryState, x, outputY, null)) continue;
     outputCells.push([x, outputY]);
   }
   if (outputCells.length < amount) return false;
@@ -597,6 +715,7 @@ function processFurnace(factoryState, machine) {
   grid[idx(input[0], input[1])] = packCell(AIR, 0);
   grid[idx(output[0], output[1])] = packCell(GOLD, 0);
   machine.heat -= MELTER_HEAT_COST;
+  machine.cycles += 1;
   recordProduction(factoryState, GOLD);
   return true;
 }
@@ -625,7 +744,7 @@ function ingotOutputIsClear(factoryState, goldPress, quartzPress) {
   for (let dy = 0; dy < BUILD_SIZE; dy += 1) {
     for (let dx = 0; dx < BUILD_SIZE; dx += 1) {
       const gx = x + dx; const gy = y + dy;
-      if (cellId(grid[idx(gx, gy)]) !== AIR || isMachineCell(factoryState, gx, gy, null)) return false;
+      if (isAreaBoundaryCell(factoryState, gx, gy) || cellId(grid[idx(gx, gy)]) !== AIR || isMachineCell(factoryState, gx, gy, null)) return false;
     }
   }
   return true;
@@ -690,6 +809,28 @@ function updateProgression(factoryState) {
       progression.upgrades.quarryRate = 2;
     }
   }
+}
+
+function updateResonance(factoryState, dt) {
+  const resonance = factoryState.resonance || (factoryState.resonance = createResonanceState());
+  resonance.cooldown = Math.max(0, (resonance.cooldown || 0) - dt);
+  const source = factoryState.machines.find((machine) => (
+    machine.type === "area-counter" && (machine.lastAreaCount || 0) >= 24
+  ));
+
+  // A full counter bank emits a timed pulse. It is deliberately edge-triggered
+  // by the cooldown, so one full bank cannot produce infinite speed for free.
+  if (source && resonance.cooldown <= 0) {
+    resonance.activeUntil = factoryState.elapsed + 5;
+    resonance.cooldown = 12;
+    resonance.pulses = (resonance.pulses || 0) + 1;
+    resonance.lastMaterial = source.areaMaterial || RESIDUE;
+  }
+  resonance.active = (resonance.activeUntil || 0) > factoryState.elapsed;
+}
+
+function isResonanceActive(factoryState) {
+  return (factoryState.resonance?.activeUntil || 0) > factoryState.elapsed;
 }
 
 function findLauncherInputs(factoryState, machine) {
@@ -798,7 +939,7 @@ function advanceLauncherFlights(factoryState, dt) {
           flight.yPosition = nextY;
           flight.distance = 0;
           setLauncherFlightDirection(flight, launcher);
-        } else if (isMachineCell(factoryState, nextX, nextY, cellId(flight.value))) {
+        } else if (isAreaBoundaryCell(factoryState, nextX, nextY) || isMachineCell(factoryState, nextX, nextY, cellId(flight.value))) {
           stopped = true;
         } else {
           if (cellId(grid[target]) !== AIR) {
@@ -853,7 +994,7 @@ function processMelter(factoryState, machine) {
   setCell(input[0], input[1], packCell(output, lifetime));
   machine.heat -= MELTER_HEAT_COST;
   machine.cycles += 1;
-  factoryState.stats.totalProduced += 1;
+  recordProduction(factoryState, output);
   return true;
 }
 
@@ -896,9 +1037,12 @@ export function factoryStep(factoryState, dt) {
       continue;
     }
 
+    const cycle = machine.type === "quarry" && isResonanceActive(factoryState)
+      ? meta.cycle * 0.5
+      : meta.cycle;
     machine.timer += delta;
-    machine.progress = Math.min(1, machine.timer / meta.cycle);
-    if (machine.timer < meta.cycle) continue;
+    machine.progress = Math.min(1, machine.timer / cycle);
+    if (machine.timer < cycle) continue;
 
     let completed = false;
     if (machine.type === "launcher") completed = processLauncher(factoryState, machine);
@@ -909,8 +1053,8 @@ export function factoryStep(factoryState, dt) {
     else if (machine.type === "pump") completed = processPump(factoryState, machine);
     else if (machine.type === "furnace") completed = processFurnace(factoryState, machine);
     if (completed) {
-      machine.timer -= meta.cycle;
-      machine.progress = Math.min(1, machine.timer / meta.cycle);
+      machine.timer -= cycle;
+      machine.progress = Math.min(1, machine.timer / cycle);
       machine.blocked = false;
       machine.blockReason = "";
     } else {
@@ -921,6 +1065,7 @@ export function factoryStep(factoryState, dt) {
     }
   }
   updateProgression(factoryState);
+  updateResonance(factoryState, delta);
 }
 
 export function serializeFactory(factoryState) {
@@ -944,6 +1089,18 @@ export function restoreFactory(serialized) {
         : [],
     }))
     : defaults.machines;
+  // v3 saves had no bounded build area and the starter counter lived at the
+  // old field floor. Keep the saved quarry, but move that one starter counter
+  // into the new 10 x 10 space so the new loop remains immediately playable.
+  if (!saved?.area && !supportedMachines.some((machine) => machine.type === "area-counter" && machine.x < START_AREA_BAYS * BUILD_SIZE && machine.y < START_AREA_BAYS * BUILD_SIZE)) {
+    const starterCounter = supportedMachines.find((machine) => machine.type === "area-counter");
+    const quarry = supportedMachines.find((machine) => machine.type === "quarry");
+    if (starterCounter) {
+      starterCounter.x = Math.min(Math.max(0, quarry?.x || 16), (START_AREA_BAYS - 1) * BUILD_SIZE);
+      starterCounter.y = (START_AREA_BAYS - 1) * BUILD_SIZE;
+      starterCounter.areaMaterial = starterCounter.areaMaterial || RESIDUE;
+    }
+  }
   // A pre-factory save can contain only retired machine types. Migrate that
   // state to the current starter heat bank instead of leaving a dead field.
   const machines = supportedMachines.length ? supportedMachines : defaults.machines;
@@ -953,10 +1110,15 @@ export function restoreFactory(serialized) {
     machines,
     flights: Array.isArray(saved?.flights) ? saved.flights : [],
     stats: { ...defaults.stats, ...(saved?.stats || {}), produced: { ...(defaults.stats.produced || {}), ...(saved?.stats?.produced || {}) } },
+    inventory: { ...(defaults.inventory || {}), ...(saved?.inventory || {}) },
+    area: { ...createAreaState(), ...(saved?.area || {}) },
+    resonance: { ...createResonanceState(), ...(saved?.resonance || {}) },
     progression: saved?.progression
       ? { ...createProgressionState(saved.progression.mode || "progression"), ...saved.progression, unlockedTools: saved.progression.mode === "legacy" ? (Array.isArray(saved.progression.unlockedTools) ? saved.progression.unlockedTools : [...ALL_LEGACY_TOOLS]) : [...new Set([...PROGRESSION_START_TOOLS, ...(Array.isArray(saved.progression.unlockedTools) ? saved.progression.unlockedTools : [])])], completedMilestones: Array.isArray(saved.progression.completedMilestones) ? saved.progression.completedMilestones : [] }
       : createProgressionState("legacy"),
   };
+  restored.area.width = Math.max(START_AREA_BAYS, Math.min(restored.area.maxWidth, Number(restored.area.width) || START_AREA_BAYS));
+  restored.area.height = Math.max(START_AREA_BAYS, Math.min(restored.area.maxHeight, Number(restored.area.height) || START_AREA_BAYS));
   const highestId = restored.machines.reduce((highest, machine) => {
     const number = Number.parseInt(String(machine.id).replace("m-", ""), 10);
     return Number.isFinite(number) ? Math.max(highest, number) : highest;

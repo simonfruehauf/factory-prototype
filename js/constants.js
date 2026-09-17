@@ -257,13 +257,14 @@ export const DENSITY = {
 export const GLOW_ELEMENTS = new Set([FIRE, LAVA, ACID, SPARK]);
 
 export const BUILD_SIZE = 8;
+export const START_AREA_BAYS = 10;
 // The reference still advances one cellular step at a time. This clock is
 // intentionally a little slower than a 60 Hz animation frame.
 export const SIM_STEP = 1 / 50;
 
 export const MACHINE_META = {
   quarry: { label: "quarry", short: "Q", cycle: 3, color: "#766958", input: "residue seam", output: "5-8 residue", detail: "releases a batch of 5-8 physical residue cells every 3 seconds" },
-  "area-counter": { label: "area counter", short: "A", cycle: 0, color: "#4A9D9A", input: "selected material inside connected counters", output: "live material count", detail: "counts selected material inside edge-connected counters of the same material" },
+  "area-counter": { label: "area counter", short: "A", cycle: 0, color: "#4A9D9A", input: "preselected material inside connected counters", output: "live count / collected stock", detail: "counts and collects the preselected material inside edge-connected counters of the same material" },
   sifter: { label: "sifter", short: "S", cycle: 0.42, color: "#B39B72", input: "residue", output: "grit / concentrate", detail: "separates residue into grit and concentrate" },
   washer: { label: "washer", short: "U", cycle: 0.65, color: "#4D9CC2", input: "grit + water", output: "quartz", detail: "washes grit into quartz" },
   pump: { label: "water pump", short: "P", cycle: 0.7, color: "#4080FF", input: "groundwater", output: "water", detail: "adds physical water to the field" },

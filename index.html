@@ -40,11 +40,11 @@
           <section aria-labelledby="machine-tools-heading">
             <div class="section-heading">
               <h2 id="machine-tools-heading">Build tools</h2>
-              <span class="section-index">01</span>
             </div>
             <p class="section-note">one tool, one 8 x 8 bay</p>
             <div class="build-tools" id="machine-tools">
               <button class="tool-button" type="button" data-tool="select" aria-pressed="true"><strong>inspect</strong><small>select a machine (V)</small></button>
+              <button class="tool-button" type="button" data-tool="eyedropper" aria-pressed="false"><span class="tool-glyph" aria-hidden="true">I</span><strong>eyedropper</strong><small>copy machine + filter (I)</small></button>
               <button class="tool-button" type="button" data-tool="erase" aria-pressed="false"><strong>erase area</strong><small>drag an area to remove (X)</small></button>
               <button class="tool-button" type="button" data-tool="quarry" aria-pressed="false"><span class="tool-sprite tool-sprite--quarry" aria-hidden="true"></span><strong>quarry</strong><small>extracts residue (Q)</small></button>
               <button class="tool-button" type="button" data-tool="area-counter" aria-pressed="false"><span class="tool-sprite tool-sprite--area-counter" aria-hidden="true"></span><strong>area counter</strong><small>single / area (A / Shift+A)</small></button>
@@ -58,16 +58,35 @@
               <button class="tool-button" type="button" data-tool="gold-press" aria-pressed="false"><span class="tool-sprite tool-sprite--gold-press" aria-hidden="true"></span><strong>gold press</strong><small>locked · G</small></button>
               <button class="tool-button" type="button" data-tool="quartz-press" aria-pressed="false"><span class="tool-sprite tool-sprite--quartz-press" aria-hidden="true"></span><strong>quartz press</strong><small>locked · Z</small></button>
               <button class="tool-button" type="button" data-tool="heat-bank" aria-pressed="false"><span class="tool-sprite tool-sprite--heat-bank" aria-hidden="true"></span><strong>heat bank</strong><small>locked · H</small></button>
+              <button class="tool-button" type="button" data-tool="melter" aria-pressed="false"><span class="tool-sprite tool-sprite--melter" aria-hidden="true"></span><strong>melter</strong><small>locked · M</small></button>
               <button class="tool-button" type="button" data-tool="filter" aria-pressed="false"><span class="tool-sprite tool-sprite--filter" aria-hidden="true"></span><strong>filter</strong><small>locked · F</small></button>
               <button class="tool-button" type="button" data-tool="launcher" aria-pressed="false"><span class="tool-sprite tool-sprite--launcher" aria-hidden="true"></span><strong>launcher</strong><small>place / L</small></button>
             </div>
             <div id="placement-mode" class="placement-mode" hidden></div>
           </section>
 
+          <section class="area-section" aria-labelledby="area-heading">
+            <div class="section-heading">
+              <h2 id="area-heading">Build area</h2>
+            </div>
+            <div class="area-summary"><strong id="area-size">10 × 10 bays</strong><span id="area-pixels">80 × 80 px</span></div>
+            <div class="area-grid" id="area-grid" role="img" aria-label="playable build area, 10 by 10 bays"></div>
+            <div class="area-economy"><span>gold in stock</span><strong id="gold-stock">0</strong></div>
+            <button class="expand-button" id="expand-area" type="button">expand +2 bays · 4 gold</button>
+            <p class="area-note">collect material from a counter bank to buy more bays.</p>
+          </section>
+
+          <section class="resource-section" aria-labelledby="resources-heading">
+            <div class="section-heading">
+              <h2 id="resources-heading">Resource list</h2>
+            </div>
+            <p class="section-note">select a material to paint a test batch. routes show how it is obtained.</p>
+            <div id="resource-list"></div>
+          </section>
+
           <section aria-labelledby="progression-heading">
             <div class="section-heading">
               <h2 id="progression-heading">Progression</h2>
-              <span class="section-index">02</span>
             </div>
             <div id="progression-content"></div>
           </section>
@@ -83,18 +102,19 @@
               <div>
                 <h2>Material field</h2>
               </div>
-              <span class="field-meta" id="field-meta">384 x 256 cells</span>
+              <span class="field-meta" id="field-meta">build 10 × 10 bays · 80 × 80 px</span>
             </div>
             <div class="sim-frame" id="canvas-wrap">
               <canvas id="sim-canvas" width="384" height="256" aria-label="Interactive falling sand material field"></canvas>
             </div>
-            <p id="canvas-hint">click an 8 x 8 bay to place or select · drag an area to remove · hold ctrl to build over a machine</p>
+            <p id="canvas-hint">click an 8 × 8 bay to place or select · active build area is 10 × 10 bays</p>
 
             <div class="field-footer">
               <div class="field-help">
                 <span><kbd>space</kbd> pause / run</span>
                 <span><kbd>g</kbd> grid</span>
                 <span><kbd>x</kbd> erase area</span>
+                <span><kbd>i</kbd> eyedropper</span>
               </div>
               <span class="field-coordinate">cursor <span id="cursor-readout">x 00 / y 00</span></span>
             </div>

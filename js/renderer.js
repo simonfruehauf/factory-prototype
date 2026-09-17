@@ -117,8 +117,29 @@ function drawGrid(gridVisible) {
   ctx.strokeRect(.5, .5, GRID_W - 1, GRID_H - 1);
 }
 
+function drawPlayableArea(factoryState) {
+  const area = factoryState.area;
+  if (!area) return;
+  const width = area.width * BUILD_SIZE;
+  const height = area.height * BUILD_SIZE;
+  const resonating = (factoryState.resonance?.activeUntil || 0) > (factoryState.elapsed || 0);
+  ctx.save();
+  ctx.strokeStyle = resonating ? "rgba(74,157,154,.95)" : "rgba(231,164,86,.9)";
+  ctx.lineWidth = resonating ? 1.5 : 1.1;
+  ctx.setLineDash(resonating ? [2, 2] : [4, 2]);
+  ctx.strokeRect(area.x * BUILD_SIZE + .5, area.y * BUILD_SIZE + .5, width - 1, height - 1);
+  ctx.restore();
+}
+
 function drawMachine(machine, factoryState) {
   drawMachineSprite(machine, factoryState);
+  if (machine.type === "area-counter" && (factoryState.resonance?.activeUntil || 0) > (factoryState.elapsed || 0)) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(74,157,154,.9)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(machine.x + 1.5, machine.y + 1.5, BUILD_SIZE - 3, BUILD_SIZE - 3);
+    ctx.restore();
+  }
 }
 
 function previewMachine(previewCell, preview) {
@@ -214,6 +235,7 @@ export function renderFrame(factoryState, { gridVisible = true, preview = null, 
   }
   ctx.putImageData(imageData, 0, 0);
   drawGrid(gridVisible);
+  drawPlayableArea(factoryState);
   for (const machine of factoryState.machines) drawMachine(machine, factoryState);
   drawBuildPreview(factoryState, preview);
   if (claw) drawClaw(claw);

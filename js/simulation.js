@@ -90,10 +90,23 @@ export function simulateStep(isBlocked = () => false, isHeated = () => false) {
 export function seedWorld() {
   currentGrid().fill(packCell(AIR, 0));
   nextGrid().fill(packCell(AIR, 0));
-  // Progression starts with an extraction site, not a painted sand dune.
-  // The fire vent remains as a physical heat source for the later furnace.
-  for (let y = 214; y < 220; y += 1) for (let x = 286; x < 300; x += 1) setCell(x, y, packCell(LAVA, 220));
-  for (let y = 220; y < 224; y += 1) for (let x = 282; x < 304; x += 1) setCell(x, y, packCell(STONE, 0));
+  // The first build space is bounded by the factory layer at 80 x 80 px. A
+  // small physical starter sample makes the material field useful before
+  // the player has built the later machines.
+  for (let y = 8; y < 12; y += 1) for (let x = 48; x < 60; x += 1) setCell(x, y, packCell(SAND, 0));
+  for (let y = 8; y < 12; y += 1) for (let x = 64; x < 72; x += 1) setCell(x, y, packCell(WATER, 0));
+  for (let y = 16; y < 20; y += 1) for (let x = 48; x < 56; x += 1) setCell(x, y, packCell(OIL, 0));
+  for (let y = 16; y < 20; y += 1) for (let x = 64; x < 72; x += 1) setCell(x, y, packCell(ACID, 0));
+  for (let y = 24; y < 27; y += 1) for (let x = 48; x < 54; x += 1) setCell(x, y, packCell(SPARK, randInt(34, 46)));
+  // This is the durable heat source for the later furnace path. It sits in a
+  // small stone-lined vent in the starter area so it remains available long
+  // enough for the player to reach and use the heat milestone.
+  for (let y = 56; y < 64; y += 1) for (let x = 24; x < 32; x += 1) setCell(x, y, packCell(LAVA, 4095));
+  for (let y = 56; y <= 64; y += 1) {
+    setCell(23, y, packCell(STONE, 0));
+    setCell(32, y, packCell(STONE, 0));
+  }
+  for (let x = 24; x < 32; x += 1) setCell(x, 64, packCell(STONE, 0));
   for (let x = 2; x < GRID_W - 2; x += 1) for (let y = GRID_H - 4; y < GRID_H; y += 1) setCell(x, y, packCell(STONE, 0));
 }
 
