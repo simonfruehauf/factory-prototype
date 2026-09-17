@@ -2,6 +2,7 @@ import {
   AIR,
   BUILD_SIZE,
   CONCENTRATE,
+  ELEMENTS,
   FILTER_MATERIALS,
   GOLD,
   GRID_H,
@@ -40,7 +41,7 @@ import {
   serializeFactory,
   snapBuildCell,
 } from "./factory.js";
-import { seedWorld, simulateStep } from "./simulation.js";
+import { paintMaterial, seedWorld, simulateStep } from "./simulation.js";
 import { canvasPoint, getCanvas, renderFrame, resizeCanvas } from "./renderer.js";
 
 const canvas = getCanvas();
@@ -72,6 +73,11 @@ const BUILD_TOOLS = ["quarry", "area-counter", "conveyor", "wall", "sifter", "wa
 const PLACEMENT_MODE_OPTIONS = { wall: ["line", "area"], "area-counter": ["single", "area"] };
 const PLACEMENT_MODE_LABELS = { line: "line", area: "area", single: "single bay" };
 const materialNames = new Map([[AIR, "air"], ...FILTER_MATERIALS.map((material) => [material.id, material.name.toLowerCase()]), ...PROGRESSION_MATERIALS]);
+const DEBUG_MATERIALS = new Map();
+DEBUG_MATERIALS.set("air", AIR);
+for (const material of [...ELEMENTS, ...FILTER_MATERIALS]) {
+  DEBUG_MATERIALS.set(material.name.toLowerCase(), material.id);
+}
 const state = { factory: createStarterFactory(), running: true, speed: 1, gridVisible: true, tool: "select", placementMode: { wall: "line", "area-counter": "single" }, pointer: null, pointerDown: false, buildStart: null, buildEnd: null, replaceOnPlace: false, claw: null, selectedMachineId: "m-1", lastUiAt: 0, lastSaveAt: 0, lastInspectorKey: "" };
 let lastFrameAt = 0;
 let simulationAccumulator = 0;
@@ -386,6 +392,63 @@ function startReplacement(factoryState, cells) {
 
 function materialLabel(id) { return materialNames.get(id) || `material ${id}`; }
 
+function normalizeDebugMaterialName(value) {
+  return String(value).trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+function resolveDebugMaterial(material) {
+  if (Number.isInteger(material)) {
+    if (material >= 0 && material <= 255) return material;
+    throw new Error(`material id must be between 0 and 255, got ${material}`);
+  }
+  const id = DEBUG_MATERIALS.get(normalizeDebugMaterialName(material));
+  if (id === undefined) {
+    throw new Error(`unknown material "${material}". Use factoryDebug.listMaterials() to see valid names.`);
+  }
+  return id;
+}
+
+function unlockEverything() {
+  const progression = state.factory.progression || {};
+  progression.mode = "legacy";
+  progression.unlockedTools = ["select", "erase", ...Object.keys(MACHINE_META)];
+  progression.completedMilestones = MILESTONES.map((milestone) => milestone.id);
+  progression.completed = true;
+  progression.upgrades = { ...(progression.upgrades || {}), quarryRate: 2 };
+  state.factory.progression = progression;
+  renderUi(performance.now());
+  saveGame(true);
+  return { unlockedTools: progression.unlockedTools.length, completed: true };
+}
+
+function placeDebugMaterial(material, x = state.pointer?.x, y = state.pointer?.y, brushSize = 1) {
+  const materialId = resolveDebugMaterial(material);
+  const pointX = Number(x);
+  const pointY = Number(y);
+  const size = Math.max(1, Math.floor(Number(brushSize)));
+  if (!Number.isFinite(pointX) || !Number.isFinite(pointY)) throw new Error("placeMaterial needs x and y coordinates, or a canvas cursor position.");
+  if (!Number.isFinite(size)) throw new Error("brushSize must be a finite number.");
+  paintMaterial(Math.round(pointX), Math.round(pointY), size, materialId, true);
+  saveGame();
+  renderFrame(state.factory, { gridVisible: state.gridVisible, preview: buildPreview(), pointer: state.pointer, claw: clawRenderState() });
+  return { material: materialLabel(materialId), id: materialId, x: Math.round(pointX), y: Math.round(pointY), brushSize: size };
+}
+
+function installDebugCommands() {
+  const commands = {
+    unlockAll: unlockEverything,
+    unlockEverything,
+    listMaterials: () => [...new Set(DEBUG_MATERIALS.keys())].sort(),
+    place: placeDebugMaterial,
+    placeMaterial: placeDebugMaterial,
+  };
+  window.factoryDebug = commands;
+  window.unlockEverything = unlockEverything;
+  window.unlockAll = unlockEverything;
+  window.placeMaterial = placeDebugMaterial;
+  console.info("factory debug commands: unlockEverything(), placeMaterial(name, x, y, brushSize), factoryDebug.listMaterials()");
+}
+
 function renderInspector() {
   const selected = getSelectedMachine(state.factory, state.selectedMachineId);
   if (!selected) {
@@ -534,6 +597,7 @@ function loop(now) {
 
 bindUi();
 restoreGame();
+installDebugCommands();
 resizeCanvas();
 setTool("select");
 renderUi(0);

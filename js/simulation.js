@@ -97,7 +97,7 @@ export function seedWorld() {
   for (let x = 2; x < GRID_W - 2; x += 1) for (let y = GRID_H - 4; y < GRID_H; y += 1) setCell(x, y, packCell(STONE, 0));
 }
 
-export function paintMaterial(x, y, brushSize, materialId) {
+export function paintMaterial(x, y, brushSize, materialId, replace = false) {
   const grid = currentGrid();
   const halfBrush = Math.floor(brushSize / 2);
   for (let dy = -halfBrush; dy <= halfBrush; dy += 1) {
@@ -106,7 +106,7 @@ export function paintMaterial(x, y, brushSize, materialId) {
       if (!inBounds(gx, gy) || dx * dx + dy * dy > halfBrush * halfBrush + 1) continue;
       const i = idx(gx, gy);
       if (materialId === AIR) grid[i] = packCell(AIR, 0);
-      else if (cellId(grid[i]) === AIR) {
+      else if (replace || cellId(grid[i]) === AIR) {
         const lifetime = materialId === FIRE ? 60 : materialId === LAVA ? 220 : materialId === SPARK ? randInt(34, 46) : 0;
         grid[i] = packCell(materialId, lifetime);
       }

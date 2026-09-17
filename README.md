@@ -69,6 +69,18 @@ Progression mode does not expose a material paint toolbar. Residue, water, grit,
 - Delete removes the selected machine.
 - Ctrl+S saves the current grid and factory to local storage.
 
+## Debug console
+
+The browser console exposes unrestricted prototype commands for testing:
+
+```js
+unlockEverything()
+placeMaterial("lava", 120, 80, 12)
+factoryDebug.listMaterials()
+```
+
+`placeMaterial` accepts a material name or numeric id, x and y cell coordinates, and an optional circular brush size. Calling it without coordinates uses the current canvas cursor position. It replaces existing cells so every registered material can be tested directly, including legacy materials that are not part of the normal toolbar.
+
 The progression starter unlocks the quarry, area counter, conveyor, wall, and launcher. It installs the quarry and area counter. Place machines into any 8 x 8 bay that does not already contain another machine, even when material is passing through it. The area counter, launcher, and press chambers are the intentional non-blocking machine bodies.
 
 ## Run
