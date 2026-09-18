@@ -4,9 +4,9 @@ An idle factory layer built on top of a falling-sand cellular automata grid, pre
 
 ## Progression run
 
-The normal reset starts with a quarry and area counter inside a 10 x 10 build area. Each bay is 8 x 8 pixels, so the initial build boundary is 80 x 80 pixels. The quarry releases a batch of 5-8 physical residue cells every 3 seconds. Build a connected residue area to unlock the sifter, then route grit through the washer and concentrate through the furnace. Quartz and gold fill two separate, horizontally adjacent press machines. When both 8 x 8 press chambers contain 64 matching cells, they drop one physical 8 x 8 ingot block below them. Collect gold from a gold-counting area counter to buy another 2 x 2 bays.
+The normal reset starts with a quarry and area counter inside a 10 x 10 build area. Each bay is 8 x 8 pixels, so the initial build boundary is 80 x 80 pixels. The quarry releases a batch of 5-8 physical residue cells every 3 seconds. Build a connected residue area to unlock the sifter, then route grit through the washer and concentrate through the furnace. Quartz and gold fill two separate, horizontally adjacent press machines. Press chambers have solid sides and bottoms, accept only their matching material from above, and hold those physical cells until full. When both 8 x 8 press chambers contain 64 matching cells, they drop one physical 8 x 8 ingot block below them. Gold inside gold-counting area counters pays for another 2 x 2 bays; expansion removes those gold cells from the field.
 
-The area counter is collisionless. Select its material before placing it, then use bulk area placement to place several counters with the same setting. It flood-fills orthogonally from the counter perimeter, follows only the selected material ID, and sums matching cells from every touching component. The inspector can collect that material into stock. Other connected materials are never included in the count. The eyedropper copies a machine type and preserves filter mode and checked materials for the next placement.
+The area counter is collisionless. Select its material before placing it, then use bulk area placement to place several counters with the same setting. It counts only matching physical cells inside the connected counter bays. Other material outside the bays is never included, and there is no separate collection inventory. The eyedropper copies a machine type and preserves filter mode and checked materials for the next placement.
 
 ## Machines & materials
 
@@ -22,7 +22,7 @@ This is the complete interaction reference for the current runtime. The simulati
 | Melter | Sand, wet sand, or gold touching an outside edge, plus at least 4 stored heat and a touching hot machine or heat bank | Sand and wet sand become physical liquid glass. Gold becomes physical liquid gold. Each melt costs 4 heat. |
 | Filter | Any material crossing its footprint | In `allow selected` mode, only checked materials pass. In `block selected` mode, checked materials are blocked and everything else passes. It has no timer or buffer. |
 | Wall | Material attempting to cross its occupied cells | Blocks movement. A straight drag creates full blocks. A diagonal drag creates half-block slopes. |
-| Area counter | Selected material inside touching counter bays | Counts a connected bank, collects its contents into stock, and can trigger material resonance at 24 matching cells. |
+| Area counter | Selected material inside touching counter bays | Counts matching cells inside the connected bank, and can trigger material resonance at 24 matching cells. |
 
 Machine-to-machine rules:
 
@@ -83,7 +83,7 @@ factoryDebug.listMaterials()
 
 `placeMaterial` accepts a material name or numeric id, x and y cell coordinates, and an optional circular brush size. Calling it without coordinates uses the current canvas cursor position. It replaces existing cells so every registered material can be tested directly, including legacy materials that are not part of the normal toolbar.
 
-The progression starter unlocks the quarry, area counter, conveyor, wall, and launcher. It installs the quarry and area counter. Place machines into any empty 8 x 8 bay inside the current build area, even when material is passing through it. The area counter, launcher, and press chambers are the intentional non-blocking machine bodies.
+The progression starter unlocks the quarry, area counter, conveyor, wall, and launcher. It installs the quarry and area counter. Place machines into any empty 8 x 8 bay inside the current build area, even when material is passing through it. The area counter and launcher are the intentional non-blocking machine bodies. Press chambers are open at the top but have solid sides and bottoms, and reject the wrong material.
 
 ## Run
 
@@ -98,7 +98,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 - `js/grid.js` owns the double-buffered `Uint32Array` state and serialization.
 - `js/simulation.js` performs the alternating bottom-up cellular automata sweep.
 - `js/renderer.js` writes one `ImageData` buffer per frame, then draws the 8 x 8 PNG machine sprites.
-- `js/factory.js` owns the bounded build area and expansion economy, 8 x 8 machine occupancy, conveyor and launcher movement, physical melting, wall collision masks, heat transfer, area-counter stock, resonance pulses, and persistence data. It does not own a separate material queue.
+- `js/factory.js` owns the bounded build area and expansion economy, 8 x 8 machine occupancy, conveyor and launcher movement, physical melting, press chambers, wall collision masks, heat transfer, area-counter zones, resonance pulses, and persistence data. It does not own a separate material queue or material inventory.
 - `js/main.js` connects the two layers to the controls and local save.
 
 Basic machines have no power cost. The heat bank is a separate thermal state: touching fire, sparks, or lava charges it; heat then bleeds into machines sharing an 8-pixel edge. Water resting on a powered melter becomes steam and consumes stored heat. Wet sand uses a slower dense-material rule, so it settles through dry sand over time. Lava can emit short-lived fire above itself. A melter beside a hot machine changes touching sand into liquid glass and touching gold into liquid gold. Both molten materials fall and spread as real field pixels before cooling.
@@ -107,4 +107,4 @@ Material resonance is the new timing mechanic. When any connected area-counter b
 
 The material layer follows the structure and techniques shown in [Mahnoor-Zaffar's falling-sand simulator](https://github.com/Mahnoor-Zaffar/The-2D-Falling-Sand-Physics-Simulator): double buffers, packed cells, bottom-up alternating sweeps, element-owned rules, and a Bresenham brush. The factory layer is original code over that grid. Liquid glass uses a deterministic 30-second cooling timer and is reheated while directly supported by a powered heat bank or heated machine. Machine behavior follows the documented [Sandustry water rules](https://wiki.hoodedhorse.com/Sandustry/Water), [wet sand reaction](https://wiki.hoodedhorse.com/Sandustry/Wet_Sand), and [shaker behavior](https://wiki.hoodedhorse.com/Sandustry/Shaker).
 
-`assets/machine-sprites.png` is an 8x8 tile atlas. Existing tiles use indices 0 through 18 and 23. Add the progression machine art at these indices: 19 quarry, 21 area counter, 22 sifter, 24 washer, 25 water pump, 26 furnace, 27 gold press, and 28 quartz press. Index 20 is unused, and indexes 29 through 31 are reserved. The atlas therefore needs a fourth row at y 24 for indices 24 through 31. The renderer uses the sprite sheet only for machine visuals. `assets/cursor-large.png` is a 4x nearest-neighbor upscale of the cursor tile and is used across the page. The browser cursor is hidden over the canvas, where the original 8x8 tile is drawn at the active material-field cell.
+`assets/machine-sprites.png` is an 8x8 tile atlas. Existing tiles use indices 0 through 18 and 23. Progression machine art uses these indices: 19 quarry, 20 spark generator, 21 area counter, 22 sifter, 24 washer, 25 water pump, 26 furnace, 27 gold press, and 28 quartz press. Indexes 29 through 31 are reserved. The atlas therefore needs a fourth row at y 24 for indices 24 through 31. The renderer uses the sprite sheet only for machine visuals. `assets/cursor-large.png` is a 4x nearest-neighbor upscale of the cursor tile and is used across the page. The browser cursor is hidden over the canvas, where the original 8x8 tile is drawn at the active material-field cell.

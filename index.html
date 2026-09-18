@@ -43,10 +43,11 @@
             </div>
             <p class="section-note">one tool, one 8 x 8 bay</p>
             <div class="build-tools" id="machine-tools">
-              <button class="tool-button" type="button" data-tool="select" aria-pressed="true"><strong>inspect</strong><small>select a machine (V)</small></button>
+              <button class="tool-button" type="button" data-tool="select" aria-pressed="true"><strong>inspect + select</strong><small>bay or area · V</small></button>
               <button class="tool-button" type="button" data-tool="eyedropper" aria-pressed="false"><span class="tool-glyph" aria-hidden="true">I</span><strong>eyedropper</strong><small>copy machine + filter (I)</small></button>
               <button class="tool-button" type="button" data-tool="erase" aria-pressed="false"><strong>erase area</strong><small>drag an area to remove (X)</small></button>
               <button class="tool-button" type="button" data-tool="quarry" aria-pressed="false"><span class="tool-sprite tool-sprite--quarry" aria-hidden="true"></span><strong>quarry</strong><small>extracts residue (Q)</small></button>
+              <button class="tool-button" type="button" data-tool="spark-generator" aria-pressed="false"><span class="tool-sprite tool-sprite--spark-generator" aria-hidden="true"></span><strong>spark generator</strong><small>creates sparks (J)</small></button>
               <button class="tool-button" type="button" data-tool="area-counter" aria-pressed="false"><span class="tool-sprite tool-sprite--area-counter" aria-hidden="true"></span><strong>area counter</strong><small>single / area (A / Shift+A)</small></button>
               <button class="tool-button" type="button" data-tool="claw" aria-pressed="false"><span class="tool-sprite tool-sprite--claw" aria-hidden="true"></span><strong>claw</strong><small>pick up / O</small></button>
               <button class="tool-button" type="button" data-tool="conveyor" aria-pressed="false"><span class="tool-sprite tool-sprite--conveyor" aria-hidden="true"></span><strong>conveyor belt</strong><small>drag a line (C)</small></button>
@@ -71,9 +72,9 @@
             </div>
             <div class="area-summary"><strong id="area-size">10 × 10 bays</strong><span id="area-pixels">80 × 80 px</span></div>
             <div class="area-grid" id="area-grid" role="img" aria-label="playable build area, 10 by 10 bays"></div>
-            <div class="area-economy"><span>gold in stock</span><strong id="gold-stock">0</strong></div>
+            <div class="area-economy"><span>gold in counters</span><strong id="gold-stock">0</strong></div>
             <button class="expand-button" id="expand-area" type="button">expand +2 bays · 4 gold</button>
-            <p class="area-note">collect material from a counter bank to buy more bays.</p>
+            <p class="area-note">gold stays physical. expansion removes it from gold counter bays.</p>
           </section>
 
           <section class="resource-section" aria-labelledby="resources-heading">
@@ -111,6 +112,10 @@
 
             <div class="field-footer">
               <div class="field-help">
+                <span><kbd>drag</kbd> select bays</span>
+                <span><kbd>ctrl+c</kbd> copy to cursor</span>
+                <span><kbd>ctrl+x</kbd> cut to cursor</span>
+                <span><kbd>esc</kbd> cancel paste</span>
                 <span><kbd>space</kbd> pause / run</span>
                 <span><kbd>g</kbd> grid</span>
                 <span><kbd>x</kbd> erase area</span>

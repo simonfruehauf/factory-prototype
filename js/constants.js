@@ -264,13 +264,14 @@ export const SIM_STEP = 1 / 50;
 
 export const MACHINE_META = {
   quarry: { label: "quarry", short: "Q", cycle: 3, color: "#766958", input: "residue seam", output: "5-8 residue", detail: "releases a batch of 5-8 physical residue cells every 3 seconds" },
-  "area-counter": { label: "area counter", short: "A", cycle: 0, color: "#4A9D9A", input: "preselected material inside connected counters", output: "live count / collected stock", detail: "counts and collects the preselected material inside edge-connected counters of the same material" },
+  "spark-generator": { label: "spark generator", short: "J", cycle: 2, color: "#FFD268", input: "none", output: "3-5 sparks", detail: "creates a batch of short-lived sparks every 2 seconds" },
+  "area-counter": { label: "area counter", short: "A", cycle: 0, color: "#4A9D9A", input: "preselected material inside connected counters", output: "live material count", detail: "counts matching physical cells inside edge-connected counter bays" },
   sifter: { label: "sifter", short: "S", cycle: 0.42, color: "#B39B72", input: "residue", output: "grit / concentrate", detail: "separates residue into grit and concentrate" },
   washer: { label: "washer", short: "U", cycle: 0.65, color: "#4D9CC2", input: "grit + water", output: "quartz", detail: "washes grit into quartz" },
   pump: { label: "water pump", short: "P", cycle: 0.7, color: "#4080FF", input: "groundwater", output: "water", detail: "adds physical water to the field" },
   furnace: { label: "furnace", short: "N", cycle: 0.8, color: "#E7724D", input: "concentrate + heat", output: "gold", detail: "refines concentrate with stored heat" },
-  "gold-press": { label: "gold press", short: "G", cycle: 0, color: "#E8B83F", input: "gold charge", output: "paired ingot", detail: "holds a 64-cell gold charge for the paired press" },
-  "quartz-press": { label: "quartz press", short: "Z", cycle: 0, color: "#CADCE2", input: "quartz charge", output: "paired ingot", detail: "holds a 64-cell quartz charge for the paired press" },
+  "gold-press": { label: "gold press", short: "G", cycle: 0, color: "#E8B83F", input: "gold entering from above", output: "paired ingot", detail: "solid-sided chamber; becomes ready at 64 physical gold cells" },
+  "quartz-press": { label: "quartz press", short: "Z", cycle: 0, color: "#CADCE2", input: "quartz entering from above", output: "paired ingot", detail: "solid-sided chamber; becomes ready at 64 physical quartz cells" },
   "heat-bank": { label: "heat bank", short: "H", cycle: 0, color: "#e7724d", input: "fire / sparks / lava", output: "stored heat", detail: "stores heat from touching sources and shares it with touching machines", heatCapacity: 100 },
   conveyor: { label: "conveyor belt", short: "C", cycle: 0.14, color: "#6faeaa", input: "material on top", output: "pile moved one cell", detail: "moves a contiguous physical pile along its direction" },
   launcher: { label: "launcher", short: "L", cycle: 0.12, color: "#a88ce3", input: "material inside", output: "ballistic arc", detail: "accepts pixels inside its no-collision body and launches them on an arc" },

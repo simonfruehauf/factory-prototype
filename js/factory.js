@@ -18,6 +18,8 @@ import {
   SAND,
   SMOKE,
   SPARK,
+  SPARK_LIFETIME_MAX,
+  SPARK_LIFETIME_MIN,
   START_AREA_BAYS,
   STEAM,
   STEAM_LIFETIME_MIN,
@@ -47,7 +49,7 @@ const PROGRESSION_MILESTONES = [
   { id: "quartz", material: QUARTZ, threshold: 8, unlocks: ["gold-press", "quartz-press"] },
   { id: "ingot", material: INGOT, threshold: 1, unlocks: [], completion: true },
 ];
-const PROGRESSION_START_TOOLS = ["select", "erase", "quarry", "area-counter", "conveyor", "wall", "launcher"];
+const PROGRESSION_START_TOOLS = ["select", "erase", "quarry", "spark-generator", "area-counter", "conveyor", "wall", "launcher"];
 const ALL_LEGACY_TOOLS = ["select", "erase", ...Object.keys(MACHINE_META)];
 
 function createAreaState() {
@@ -166,15 +168,14 @@ export function isWithinPlayableArea(factoryState, x, y) {
 }
 
 // The material field remains larger than the build space, but its active
-// boundary is physical: falling material stops at the right and bottom edge
-// until the player buys more bays.
+// boundary is physical on all four sides until the player buys more bays.
 export function isAreaBoundaryCell(factoryState, x, y) {
   const area = factoryState.area || createAreaState();
   const right = area.x * BUILD_SIZE + area.width * BUILD_SIZE;
   const bottom = area.y * BUILD_SIZE + area.height * BUILD_SIZE;
   const left = area.x * BUILD_SIZE;
   const top = area.y * BUILD_SIZE;
-  return (x === right && y >= top && y < bottom) || (y === bottom && x >= left && x < right);
+  return x < left || x >= right || y < top || y >= bottom;
 }
 
 export function isToolUnlocked(factoryState, type) {
@@ -186,10 +187,28 @@ function isNonBlockingMachine(type) {
   return ["launcher", "area-counter", "gold-press", "quartz-press"].includes(type);
 }
 
+function pressMaterial(machine) {
+  return machine.type === "gold-press" ? GOLD : QUARTZ;
+}
+
+function isPressShellCell(machine, x, y) {
+  if (!["gold-press", "quartz-press"].includes(machine.type)) return false;
+  const left = machine.x;
+  const right = machine.x + BUILD_SIZE - 1;
+  const top = machine.y;
+  const bottom = machine.y + BUILD_SIZE;
+  const side = (x === left - 1 || x === right + 1) && y >= top && y <= bottom;
+  const floor = y === bottom && x >= left && x <= right;
+  return side || floor;
+}
+
 export function isMachineCell(factoryState, x, y, materialId = null) {
-  const machines = factoryState.machines.filter((machine) => machineContainsCell(machine, x, y));
-  if (!machines.length) return false;
-  return machines.some((machine) => {
+  return factoryState.machines.some((machine) => {
+    if (isPressShellCell(machine, x, y)) return materialId !== null && materialId !== AIR;
+    if (!machineContainsCell(machine, x, y)) return false;
+    if (["gold-press", "quartz-press"].includes(machine.type)) {
+      return materialId !== null && materialId !== AIR && materialId !== pressMaterial(machine);
+    }
     if (isNonBlockingMachine(machine.type)) return false;
     if (machine.type === "filter") {
       if (materialId === null || materialId === AIR) return false;
@@ -235,29 +254,16 @@ function getConnectedAreaCounters(factoryState, machine, materialId) {
 function getAreaMaterialCells(factoryState, machine, materialId) {
   const grid = currentGrid();
   const counters = getConnectedAreaCounters(factoryState, machine, materialId);
-  const pending = [];
   const countedCells = new Set();
-  const addIfMatching = (x, y) => {
-    if (!inBounds(x, y)) return;
-    const cellIndex = idx(x, y);
-    if (countedCells.has(cellIndex) || cellId(grid[cellIndex]) !== materialId) return;
-    countedCells.add(cellIndex);
-    pending.push([x, y]);
-  };
 
   for (const counter of counters) {
     for (let y = counter.y; y < counter.y + BUILD_SIZE; y += 1) {
-      for (let x = counter.x; x < counter.x + BUILD_SIZE; x += 1) addIfMatching(x, y);
+      for (let x = counter.x; x < counter.x + BUILD_SIZE; x += 1) {
+        if (!inBounds(x, y)) continue;
+        const cellIndex = idx(x, y);
+        if (cellId(grid[cellIndex]) === materialId) countedCells.add(cellIndex);
+      }
     }
-    for (const [x, y] of edgeCells(counter)) addIfMatching(x, y);
-  }
-
-  while (pending.length) {
-    const [x, y] = pending.shift();
-    addIfMatching(x + 1, y);
-    addIfMatching(x - 1, y);
-    addIfMatching(x, y + 1);
-    addIfMatching(x, y - 1);
   }
   return countedCells;
 }
@@ -267,23 +273,33 @@ export function getAreaConnectedCount(factoryState, machine, materialId = machin
   return getAreaMaterialCells(factoryState, machine, materialId).size;
 }
 
-export function collectAreaMaterial(factoryState, machine, materialId = machine?.areaMaterial || RESIDUE) {
-  if (!machine || machine.type !== "area-counter" || materialId === AIR) return 0;
+export function getAreaMaterialTotal(factoryState, materialId) {
+  if (materialId === AIR) return 0;
+  const countedCells = new Set();
+  for (const counter of factoryState.machines.filter((machine) => (
+    machine.type === "area-counter" && machine.areaMaterial === materialId
+  ))) {
+    for (const cellIndex of getAreaMaterialCells(factoryState, counter, materialId)) countedCells.add(cellIndex);
+  }
+  return countedCells.size;
+}
+
+function consumeAreaMaterial(factoryState, materialId, amount) {
+  if (materialId === AIR || amount <= 0) return 0;
   const grid = currentGrid();
-  const countedCells = getAreaMaterialCells(factoryState, machine, materialId);
-  let collected = 0;
+  const countedCells = new Set();
+  for (const counter of factoryState.machines.filter((machine) => (
+    machine.type === "area-counter" && machine.areaMaterial === materialId
+  ))) {
+    for (const cellIndex of getAreaMaterialCells(factoryState, counter, materialId)) countedCells.add(cellIndex);
+  }
+  const availableCells = [...countedCells].filter((cellIndex) => cellId(grid[cellIndex]) === materialId);
+  if (availableCells.length < amount) return 0;
 
-  for (const cellIndex of countedCells) {
-    if (cellId(grid[cellIndex]) !== materialId) continue;
+  for (const cellIndex of availableCells.slice(0, amount)) {
     grid[cellIndex] = packCell(AIR, 0);
-    collected += 1;
   }
-
-  if (collected) {
-    factoryState.inventory = factoryState.inventory || {};
-    factoryState.inventory[materialId] = (factoryState.inventory[materialId] || 0) + collected;
-  }
-  return collected;
+  return amount;
 }
 
 export function getExpansionCost(factoryState) {
@@ -296,15 +312,16 @@ export function getExpansionCost(factoryState) {
 export function buyAreaExpansion(factoryState) {
   const area = factoryState.area || createAreaState();
   const cost = getExpansionCost(factoryState);
-  const inventory = factoryState.inventory || (factoryState.inventory = {});
   if (cost === null) return { ok: false, reason: "maxed", cost: null };
-  if ((inventory[GOLD] || 0) < cost) return { ok: false, reason: "need_gold", cost };
+  const available = getAreaMaterialTotal(factoryState, GOLD);
+  if (available < cost) return { ok: false, reason: "need_gold", cost, available };
+  const spent = consumeAreaMaterial(factoryState, GOLD, cost);
+  if (spent !== cost) return { ok: false, reason: "need_gold", cost, available: getAreaMaterialTotal(factoryState, GOLD) };
 
-  inventory[GOLD] -= cost;
   area.width = Math.min(area.maxWidth, area.width + 2);
   area.height = Math.min(area.maxHeight, area.height + 2);
   factoryState.area = area;
-  return { ok: true, cost, width: area.width, height: area.height };
+  return { ok: true, cost, spent, width: area.width, height: area.height };
 }
 
 export function isHeatedCell(factoryState, x, y) {
@@ -671,6 +688,30 @@ function processQuarry(factoryState, machine) {
   return true;
 }
 
+function processSparkGenerator(factoryState, machine) {
+  const amount = randInt(3, 5);
+  const outputCells = [];
+  const grid = currentGrid();
+  const preferred = Math.min(BUILD_SIZE - 1, 3);
+  const xOrder = Array.from({ length: BUILD_SIZE }, (_, index) => (preferred + index) % BUILD_SIZE);
+  const candidates = [
+    ...xOrder.map((x) => [machine.x + x, machine.y - 1]),
+    ...xOrder.map((x) => [machine.x + x, machine.y + BUILD_SIZE]),
+    ...Array.from({ length: BUILD_SIZE }, (_, y) => [machine.x - 1, machine.y + y]),
+    ...Array.from({ length: BUILD_SIZE }, (_, y) => [machine.x + BUILD_SIZE, machine.y + y]),
+  ];
+  for (const [x, y] of candidates) {
+    if (outputCells.length >= amount) break;
+    if (!inBounds(x, y) || isAreaBoundaryCell(factoryState, x, y) || cellId(grid[idx(x, y)]) !== AIR || isMachineCell(factoryState, x, y, null)) continue;
+    outputCells.push([x, y]);
+  }
+  if (outputCells.length < amount) return false;
+  for (const [x, y] of outputCells) setCell(x, y, packCell(SPARK, randInt(SPARK_LIFETIME_MIN, SPARK_LIFETIME_MAX)));
+  machine.cycles += 1;
+  recordProduction(factoryState, SPARK, amount);
+  return true;
+}
+
 function processSifter(factoryState, machine) {
   const input = findEdgeInput(machine, RESIDUE);
   const concentrate = machine.cycles % 5 === 4;
@@ -720,20 +761,33 @@ function processFurnace(factoryState, machine) {
   return true;
 }
 
-function capturePress(machine) {
-  const materialId = machine.type === "gold-press" ? GOLD : QUARTZ;
+function countPressMaterial(machine) {
+  const materialId = pressMaterial(machine);
   const grid = currentGrid();
-  let captured = 0;
-  for (let y = machine.y; y < machine.y + BUILD_SIZE && machine.fill < machine.fillCapacity; y += 1) {
-    for (let x = machine.x; x < machine.x + BUILD_SIZE && machine.fill < machine.fillCapacity; x += 1) {
-      const cell = idx(x, y);
-      if (cellId(grid[cell]) !== materialId) continue;
-      grid[cell] = packCell(AIR, 0);
-      machine.fill += 1;
-      captured += 1;
+  let count = 0;
+  for (let y = machine.y; y < machine.y + BUILD_SIZE; y += 1) {
+    for (let x = machine.x; x < machine.x + BUILD_SIZE; x += 1) {
+      if (cellId(grid[idx(x, y)]) === materialId) count += 1;
     }
   }
-  return captured;
+  return count;
+}
+
+function syncPressFill(machine) {
+  machine.fill = countPressMaterial(machine);
+  machine.fillCapacity = PRESS_CAPACITY;
+  return machine.fill;
+}
+
+function clearPressMaterial(machine) {
+  const materialId = pressMaterial(machine);
+  const grid = currentGrid();
+  for (let y = machine.y; y < machine.y + BUILD_SIZE; y += 1) {
+    for (let x = machine.x; x < machine.x + BUILD_SIZE; x += 1) {
+      const cell = idx(x, y);
+      if (cellId(grid[cell]) === materialId) grid[cell] = packCell(AIR, 0);
+    }
+  }
 }
 
 function ingotOutputIsClear(factoryState, goldPress, quartzPress) {
@@ -753,9 +807,9 @@ function ingotOutputIsClear(factoryState, goldPress, quartzPress) {
 function processPresses(factoryState) {
   for (const machine of factoryState.machines.filter((item) => item.type === "gold-press")) {
     const partner = getPressPartner(factoryState, machine);
-    capturePress(machine);
+    syncPressFill(machine);
     machine.blocked = false;
-    machine.blockReason = machine.fill >= machine.fillCapacity ? "full" : "filling";
+    machine.blockReason = machine.fill >= machine.fillCapacity ? "ready" : "filling";
     if (!partner) {
       if (machine.fill >= machine.fillCapacity) {
         machine.blocked = true;
@@ -763,9 +817,9 @@ function processPresses(factoryState) {
       }
       continue;
     }
-    capturePress(partner);
+    syncPressFill(partner);
     partner.blocked = false;
-    partner.blockReason = partner.fill >= partner.fillCapacity ? "full" : "filling";
+    partner.blockReason = partner.fill >= partner.fillCapacity ? "ready" : "filling";
     if (machine.fill < machine.fillCapacity || partner.fill < partner.fillCapacity) {
       if (machine.fill >= machine.fillCapacity || partner.fill >= partner.fillCapacity) {
         machine.blocked = true; partner.blocked = true;
@@ -781,10 +835,12 @@ function processPresses(factoryState) {
     }
     const x = Math.min(machine.x, partner.x);
     const y = machine.y + BUILD_SIZE;
+    clearPressMaterial(machine);
+    clearPressMaterial(partner);
     for (let dy = 0; dy < BUILD_SIZE; dy += 1) {
       for (let dx = 0; dx < BUILD_SIZE; dx += 1) setCell(x + dx, y + dy, packCell(INGOT, 0));
     }
-    machine.fill = 0; partner.fill = 0;
+    syncPressFill(machine); syncPressFill(partner);
     machine.cycles += 1; partner.cycles += 1;
     factoryState.stats.ingots = (factoryState.stats.ingots || 0) + 1;
     recordProduction(factoryState, INGOT);
@@ -1046,6 +1102,7 @@ export function factoryStep(factoryState, dt) {
 
     let completed = false;
     if (machine.type === "launcher") completed = processLauncher(factoryState, machine);
+    else if (machine.type === "spark-generator") completed = processSparkGenerator(factoryState, machine);
     else if (machine.type === "melter") completed = processMelter(factoryState, machine);
     else if (machine.type === "quarry") completed = processQuarry(factoryState, machine);
     else if (machine.type === "sifter") completed = processSifter(factoryState, machine);

@@ -376,6 +376,10 @@ button[aria-pressed="true"] {
   background-position: -6rem -4rem;
 }
 
+.tool-sprite--spark-generator {
+  background-position: -8rem -4rem;
+}
+
 .tool-sprite--area-counter,
 .tool-sprite--claw {
   background-position: -10rem -4rem;
@@ -802,19 +806,6 @@ kbd {
 
 .status-row strong:first-letter {
   text-transform: uppercase;
-}
-
-.progress-label {
-  display: grid;
-  gap: .35rem;
-}
-
-.progress-label progress,
-.inspector progress {
-  display: block;
-  width: 100%;
-  height: .8rem;
-  accent-color: var(--signal);
 }
 
 .filter-settings {
